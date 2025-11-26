@@ -62,7 +62,6 @@ const loginUser = async (req, res) => {
   const { login, password } = req.body;
 
   try {
-    // Check for user by login
     const [users] = await pool.query('SELECT * FROM users WHERE login = ?', [login]);
     if (users.length === 0) {
       return res.status(401).json({ message: 'Invalid credentials' });
