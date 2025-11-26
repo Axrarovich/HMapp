@@ -3,7 +3,13 @@ import 'package:flutter/material.dart';
 
 class CreateOrderScreen extends StatefulWidget {
   final int masterId;
-  const CreateOrderScreen({Key? key, required this.masterId}) : super(key: key);
+  final int roomId; // Added roomId parameter
+
+  const CreateOrderScreen({
+    Key? key,
+    required this.masterId,
+    required this.roomId, // Make it required
+  }) : super(key: key);
 
   @override
   State<CreateOrderScreen> createState() => _CreateOrderScreenState();
@@ -28,20 +34,21 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       });
 
       try {
+        // Calling the updated service method with named parameters
         await _orderService.createOrder(
-          widget.masterId,
-          _descriptionController.text,
+          masterId: widget.masterId,
+          roomId: widget.roomId, 
+          description: _descriptionController.text,
         );
 
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Order created successfully! You can track it in the History tab.')),
           );
-          // Pop two times to go back to the masters list
+          // Pop two times to go back to the map screen
           int count = 0;
           Navigator.of(context).popUntil((_) => count++ >= 2);
         }
-
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +69,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Request Service'),
+        title: const Text('Confirm Booking'), // Changed title
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -72,24 +79,19 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Please describe the task for the master:',
+                'Please enter any special requests for your booking (optional):',
                 style: TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'For example: \'The kitchen sink is leaking\'',
+                  labelText: 'Special Requests',
+                  hintText: 'e.g., late check-in, extra towels',
                   border: OutlineInputBorder(),
                 ),
-                maxLines: 5,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a description';
-                  }
-                  return null;
-                },
+                maxLines: 4,
+                // Validator is removed, as the description is now optional
               ),
               const SizedBox(height: 32),
               SizedBox(
@@ -101,7 +103,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: const Text('Send Request'),
+                        child: const Text('Confirm and Book'),
                       ),
               ),
             ],

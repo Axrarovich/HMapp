@@ -1,6 +1,6 @@
 import 'dart:async';
+import 'package:comply/screens/users_screen/create_order_screen.dart';
 import 'package:comply/services/master_service.dart';
-import 'package:comply/services/order_service.dart';
 import 'package:comply/services/room_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -64,7 +64,6 @@ class _MapScreenState extends State<MapScreen> {
   final Completer<GoogleMapController> _controller = Completer();
   final MasterService _masterService = MasterService();
   final RoomService _roomService = RoomService();
-  final OrderService _orderService = OrderService();
 
   final Set<Marker> _markers = {};
   Place? _selectedPlace;
@@ -152,52 +151,6 @@ class _MapScreenState extends State<MapScreen> {
         });
       }
   }
-
-  void _showBookingDialog(Room room) {
-    final _descriptionController = TextEditingController();
-    showDialog(
-        context: context,
-        builder: (context) {
-            return AlertDialog(
-                title: const Text('Confirm Booking'),
-                content: TextField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(labelText: 'Any special requests? (optional)'),
-                ),
-                actions: [
-                    TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-                    ElevatedButton(
-                        onPressed: () async {
-                            try {
-                                await _orderService.createRoomOrder(
-                                    masterId: _selectedPlace!.id,
-                                    roomId: room.id,
-                                    description: _descriptionController.text,
-                                );
-                                if (mounted) {
-                                    Navigator.of(context).pop(); // Close dialog
-                                    _hidePlaceDetails();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Booking successful! Check your History.')),
-                                    );
-                                }
-                            } catch (e) {
-                                 if (mounted) {
-                                     Navigator.of(context).pop(); // Close dialog
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Booking failed: $e')),
-                                    );
-                                 }
-                            }
-                        },
-                        child: const Text('Confirm'),
-                    ),
-                ],
-            );
-        },
-    );
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +243,13 @@ class _MapScreenState extends State<MapScreen> {
                                     children: [
                                       Text('${room.price.toStringAsFixed(0)} UZS / night', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
                                       ElevatedButton(
-                                          onPressed: room.isAvailable ? () => _showBookingDialog(room) : null,
+                                          onPressed: room.isAvailable ? () {
+                                              Navigator.push(context, MaterialPageRoute(builder: (context) => 
+                                                CreateOrderScreen(
+                                                  masterId: _selectedPlace!.id,
+                                                  roomId: room.id,
+                                                )));
+                                          } : null,
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: room.isAvailable ? Colors.blue : Colors.grey,
                                           ),

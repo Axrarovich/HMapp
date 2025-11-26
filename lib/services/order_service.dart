@@ -6,8 +6,8 @@ class OrderService {
   final String _baseUrl = 'http://10.0.2.2:5000/api/orders';
   final AuthService _authService = AuthService();
 
-  // For Users: Create an order for a specific room
-  Future<void> createRoomOrder({required int masterId, required int roomId, String? description}) async {
+  // Renamed back to createOrder but with named parameters including roomId
+  Future<void> createOrder({required int masterId, required int roomId, String? description}) async {
     final token = await _authService.getToken();
     final response = await http.post(
       Uri.parse(_baseUrl),
@@ -23,7 +23,8 @@ class OrderService {
     );
 
     if (response.statusCode != 201) {
-      throw Exception('Failed to create order: ${response.body}');
+      final errorBody = jsonDecode(response.body);
+      throw Exception('Failed to create order: ${errorBody['message']}');
     }
   }
 
