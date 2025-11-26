@@ -114,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
            const CircleAvatar(
             radius: 30,
-            backgroundImage: AssetImage("assets/images/worker.jpg"), 
+            backgroundImage: AssetImage("assets/images/splashlogo.jpg"),
           ),
           const SizedBox(width: 16),
           Expanded(

@@ -4,6 +4,7 @@ import 'package:comply/services/master_service.dart';
 import 'package:comply/services/room_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
 
 class Place {
   final int id;
@@ -152,11 +153,72 @@ class _MapScreenState extends State<MapScreen> {
       }
   }
 
+  Future<void> _goToMyLocation() async {
+    Location location = Location();
+
+    debugPrint("Checking location service...");
+    bool serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      debugPrint("Location service is disabled. Requesting service...");
+      serviceEnabled = await location.requestService();
+      if (!serviceEnabled) {
+        debugPrint("Location service request was denied.");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location services are disabled.')),
+          );
+        }
+        return;
+      }
+    }
+    debugPrint("Location service is enabled.");
+
+    debugPrint("Checking location permission...");
+    PermissionStatus permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      debugPrint("Location permission is denied. Requesting permission...");
+      permissionGranted = await location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        debugPrint("Location permission request was denied.");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied.')),
+          );
+        }
+        return;
+      }
+    }
+    debugPrint("Location permission is granted.");
+
+    try {
+      debugPrint("Getting current location...");
+      LocationData locationData = await location.getLocation();
+      debugPrint("Location received: ${locationData.latitude}, ${locationData.longitude}");
+      final GoogleMapController controller = await _controller.future;
+      debugPrint("Moving camera to new location.");
+      controller.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(locationData.latitude!, locationData.longitude!),
+          zoom: 18,
+        ),
+      ));
+      debugPrint("Camera move initiated.");
+    } catch (e) {
+      debugPrint("Error getting location: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to get location: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find a Place'),
+        title: const Text('Map',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
       ),
       body: Stack(
@@ -165,10 +227,58 @@ class _MapScreenState extends State<MapScreen> {
             mapType: MapType.normal,
             initialCameraPosition: _tashkent,
             markers: _markers,
+            zoomControlsEnabled: false,
             onMapCreated: (GoogleMapController controller) {
               _controller.complete(controller);
             },
             onTap: (_) => _hidePlaceDetails(), // Hide details when tapping on map
+          ),
+           Positioned(
+            right: 16.0,
+            bottom: 0,
+            top: 0,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: FloatingActionButton(
+                      heroTag: 'zoomIn',
+                      onPressed: () async {
+                        final GoogleMapController controller = await _controller.future;
+                        controller.animateCamera(CameraUpdate.zoomIn());
+                      },
+                      child: const Icon(Icons.add),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: FloatingActionButton(
+                      heroTag: 'zoomOut',
+                      onPressed: () async {
+                        final GoogleMapController controller = await _controller.future;
+                        controller.animateCamera(CameraUpdate.zoomOut());
+                      },
+                      child: const Icon(Icons.remove),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: FloatingActionButton(
+                      heroTag: 'myLocation',
+                      onPressed: _goToMyLocation,
+                      child: const Icon(Icons.my_location),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           if (_isPlaceDetailsVisible)
             DraggableScrollableSheet(

@@ -1,16 +1,16 @@
 import 'dart:convert';
+import 'package:comply/config/constants.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class OrderService {
-  final String _baseUrl = 'http://10.0.2.2:5000/api/orders';
+  final String _ordersUrl = '$baseUrl/orders';
   final AuthService _authService = AuthService();
 
-  // Renamed back to createOrder but with named parameters including roomId
   Future<void> createOrder({required int masterId, required int roomId, String? description}) async {
     final token = await _authService.getToken();
     final response = await http.post(
-      Uri.parse(_baseUrl),
+      Uri.parse(_ordersUrl),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $token',
@@ -28,11 +28,10 @@ class OrderService {
     }
   }
 
-
   Future<List<dynamic>> getOrders() async {
     final token = await _authService.getToken();
     final response = await http.get(
-      Uri.parse(_baseUrl),
+      Uri.parse(_ordersUrl),
       headers: <String, String>{
         'Authorization': 'Bearer $token',
       },
@@ -48,7 +47,7 @@ class OrderService {
   Future<Map<String, dynamic>> updateOrderStatus(int orderId, String status) async {
     final token = await _authService.getToken();
     final response = await http.put(
-      Uri.parse('$_baseUrl/$orderId'),
+      Uri.parse('$_ordersUrl/$orderId'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $token',

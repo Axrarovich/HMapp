@@ -1,13 +1,14 @@
 import 'dart:convert';
+import 'package:comply/config/constants.dart';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class MasterService {
-  final String _baseUrl = 'http://10.0.2.2:5000/api';
+  final String _mastersUrl = '$baseUrl/masters';
   final AuthService _authService = AuthService();
 
   Future<List<dynamic>> getMasters() async {
-    final response = await http.get(Uri.parse('$_baseUrl/masters'));
+    final response = await http.get(Uri.parse(_mastersUrl));
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -17,7 +18,7 @@ class MasterService {
   }
 
   Future<Map<String, dynamic>> getMasterById(int id) async {
-    final response = await http.get(Uri.parse('$_baseUrl/masters/$id'));
+    final response = await http.get(Uri.parse('$_mastersUrl/$id'));
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -29,7 +30,7 @@ class MasterService {
   Future<Map<String, dynamic>> getMasterProfile() async {
     final token = await _authService.getToken();
     final response = await http.get(
-      Uri.parse('$_baseUrl/masters/profile'),
+      Uri.parse('$_mastersUrl/profile'),
       headers: <String, String>{
         'Authorization': 'Bearer $token',
       },
@@ -44,7 +45,7 @@ class MasterService {
   Future<Map<String, dynamic>> updateMasterProfile(Map<String, dynamic> data) async {
     final token = await _authService.getToken();
     final response = await http.put(
-      Uri.parse('$_baseUrl/masters/profile'),
+      Uri.parse('$_mastersUrl/profile'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $token',
