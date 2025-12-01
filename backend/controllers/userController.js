@@ -102,4 +102,50 @@ const getUserProfile = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, getUserProfile };
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+const updateUserProfile = async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const user = users[0];
+
+    const { first_name, last_name, login, password } = req.body;
+
+    const updatedFields = {
+      first_name: first_name || user.first_name,
+      last_name: last_name === '' ? null : last_name || user.last_name,
+      login: login || user.login,
+    };
+
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updatedFields.password = await bcrypt.hash(password, salt);
+    }
+
+    if (login && login !== user.login) {
+      const [existingUser] = await pool.query('SELECT * FROM users WHERE login = ?', [login]);
+      if (existingUser.length > 0) {
+        return res.status(400).json({ message: 'User with this login already exists' });
+      }
+    }
+
+    await pool.query('UPDATE users SET ? WHERE id = ?', [updatedFields, req.user.id]);
+
+    const [updatedUsers] = await pool.query('SELECT id, first_name, last_name, login, role FROM users WHERE id = ?', [req.user.id]);
+
+    res.json({
+      ...updatedUsers[0],
+      token: generateToken(req.user.id),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile };

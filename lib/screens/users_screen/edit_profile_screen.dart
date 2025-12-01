@@ -76,13 +76,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
 
       // Step 3: Update user profile
-      final userId = await _authService.getUserId();
-      if (userId == null) {
-        throw Exception('User not found');
-      }
-      
       await _authService.updateUser(
-        userId,
         _firstNameController.text,
         _lastNameController.text,
         _loginController.text,

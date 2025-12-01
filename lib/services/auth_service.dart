@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthService {
   final String _registerUrl = '$baseUrl/users/register';
   final String _loginUrl = '$baseUrl/users/login';
-  final String _updateUserUrl = '$baseUrl/users/'; // Will append user ID
+  final String _updateUserUrl = '$baseUrl/users/profile';
 
   Future<Map<String, dynamic>> register(String firstName, String? lastName, String login, String password, String role) async {
     final response = await http.post(
@@ -55,10 +55,10 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> updateUser(int userId, String firstName, String? lastName, String login, String? password) async {
+  Future<Map<String, dynamic>> updateUser(String firstName, String? lastName, String login, String? password) async {
     final token = await getToken();
     final response = await http.put(
-      Uri.parse('$_updateUserUrl$userId'),
+      Uri.parse(_updateUserUrl),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $token',
@@ -76,8 +76,12 @@ class AuthService {
       await _saveUserData(data);
       return data;
     } else {
-      final errorBody = jsonDecode(response.body);
-      throw Exception('Failed to update profile: ${errorBody['message']}');
+      try {
+        final errorBody = jsonDecode(response.body);
+        throw Exception('Failed to update profile: ${errorBody['message']}');
+      } catch (e) {
+        throw Exception('Failed to update profile: ${response.body}');
+      }
     }
   }
 

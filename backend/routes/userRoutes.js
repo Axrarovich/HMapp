@@ -18,4 +18,9 @@ router.post('/login', userController.loginUser);
 // @access  Private
 router.get('/profile', protect, userController.getUserProfile);
 
+// @route   PUT api/users/profile
+// @desc    Update user profile
+// @access  Private
+router.put('/profile', protect, userController.updateUserProfile);
+
 module.exports = router;
