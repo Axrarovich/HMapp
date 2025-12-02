@@ -1,6 +1,6 @@
+import 'package:comply/screens/auth/information_screen.dart';
 import 'package:comply/services/auth_service.dart';
 import 'package:flutter/material.dart';
-import '../services_screen/orders_screen.dart';
 
 class MasterSignUpScreen extends StatefulWidget {
   const MasterSignUpScreen({Key? key}) : super(key: key);
@@ -28,7 +28,7 @@ class _MasterSignUpScreenState extends State<MasterSignUpScreen> {
     super.dispose();
   }
 
-  Future<void> _signUp() async {
+  Future<void> _goToInformationScreen() async {
     if (_formKey.currentState!.validate()) {
       if (_passwordController.text != _confirmPasswordController.text) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -42,28 +42,28 @@ class _MasterSignUpScreenState extends State<MasterSignUpScreen> {
       });
 
       try {
-        // Register with the role of 'master'
-        // The place_name is passed as first_name
-        await _authService.register(
-          _placeNameController.text, // This is the Place Name
-          null, // No last name for masters
-          _loginController.text,
-          _passwordController.text,
-          'master',
-        );
-
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const OrdersPanelScreen()),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
+        final loginExists = await _authService.checkLogin(_loginController.text);
+        if (loginExists) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString())),
+            const SnackBar(content: Text('This login is already taken')),
           );
+          return;
         }
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InformationScreen(
+              placeName: _placeNameController.text,
+              login: _loginController.text,
+              password: _passwordController.text,
+            ),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
       } finally {
         if (mounted) {
           setState(() {
@@ -79,7 +79,7 @@ class _MasterSignUpScreenState extends State<MasterSignUpScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Service Sign Up', // Changed title
+        title: const Text('Service Sign Up',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
@@ -107,7 +107,7 @@ class _MasterSignUpScreenState extends State<MasterSignUpScreen> {
                         TextFormField(
                           controller: _placeNameController,
                           decoration: InputDecoration(
-                            labelText: 'Place Name / Service Name',
+                            labelText: 'Place Name',
                             filled: true,
                             fillColor: Colors.grey[200],
                             border: OutlineInputBorder(
@@ -195,7 +195,7 @@ class _MasterSignUpScreenState extends State<MasterSignUpScreen> {
                   child: _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(
-                          onPressed: _signUp,
+                          onPressed: _goToInformationScreen,
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16.0),
                             shape: RoundedRectangleBorder(
@@ -203,7 +203,7 @@ class _MasterSignUpScreenState extends State<MasterSignUpScreen> {
                             ),
                           ),
                           child: const Text(
-                            'Sign Up as a Service',
+                            'Next',
                             style: TextStyle(fontSize: 16),
                           ),
                         ),

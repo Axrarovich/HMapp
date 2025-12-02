@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:comply/config/constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,21 +8,50 @@ class AuthService {
   final String _registerUrl = '$baseUrl/users/register';
   final String _loginUrl = '$baseUrl/users/login';
   final String _updateUserUrl = '$baseUrl/users/profile';
+  final String _checkLoginUrl = '$baseUrl/users/check-login';
 
-  Future<Map<String, dynamic>> register(String firstName, String? lastName, String login, String password, String role) async {
-    final response = await http.post(
-      Uri.parse(_registerUrl),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(<String, String?>{
-        'first_name': firstName,
-        'last_name': lastName,
-        'login': login,
-        'password': password,
-        'role': role,
-      }),
-    );
+  Future<bool> checkLogin(String login) async {
+    final response = await http.get(Uri.parse('$_checkLoginUrl/$login'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['exists'];
+    } else {
+      throw Exception('Failed to check login');
+    }
+  }
+
+  Future<Map<String, dynamic>> register(
+    String firstName,
+    String? lastName,
+    String login,
+    String password,
+    String role, {
+    Map<String, dynamic>? masterData,
+  }) async {
+    var request = http.MultipartRequest('POST', Uri.parse(_registerUrl));
+
+    request.fields['first_name'] = firstName;
+    if (lastName != null) {
+      request.fields['last_name'] = lastName;
+    }
+    request.fields['login'] = login;
+    request.fields['password'] = password;
+    request.fields['role'] = role;
+
+    if (masterData != null) {
+      masterData.forEach((key, value) {
+        if (key != 'image' && value != null) {
+          request.fields[key] = value.toString();
+        }
+      });
+
+      if (masterData.containsKey('image') && masterData['image'] is File) {
+        File imageFile = masterData['image'];
+        request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      }
+    }
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 201) {
       final data = jsonDecode(response.body);
@@ -32,6 +62,7 @@ class AuthService {
       throw Exception('Failed to register: ${errorBody['message']}');
     }
   }
+
 
   Future<Map<String, dynamic>> login(String login, String password) async {
     final response = await http.post(
@@ -90,8 +121,10 @@ class AuthService {
     if (data.containsKey('token')) {
           await prefs.setString('token', data['token']);
     }
-    await prefs.setString('first_name', data['first_name']);
-    if (data['last_name'] != null) {
+    if (data.containsKey('first_name')) {
+      await prefs.setString('first_name', data['first_name']);
+    }
+    if (data.containsKey('last_name') && data['last_name'] != null) {
       await prefs.setString('last_name', data['last_name']);
     } else {
       await prefs.remove('last_name');

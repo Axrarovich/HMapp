@@ -9,49 +9,84 @@ const generateToken = (id) => {
   });
 };
 
+// Check if a login is already taken
+const checkLogin = async (req, res) => {
+  try {
+    const [users] = await pool.query('SELECT * FROM users WHERE login = ?', [req.params.login]);
+    res.json({ exists: users.length > 0 });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Register a new user
 const registerUser = async (req, res) => {
-  // For masters, first_name is the place_name. last_name is optional.
-  const { first_name, last_name, login, password, role } = req.body;
+  const { first_name, last_name, login, password, role, phone_number_1, phone_number_2, address, description } = req.body;
+  const imageUrl = req.file ? req.file.path : null; // Get the path of the uploaded image
 
-  console.log(req);
-
-  if (!first_name || !login || !password || !role) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
+  if (!login || !password || !role) {
+    return res.status(400).json({ message: 'Please provide login, password, and role' });
   }
 
   try {
-    // Check if user exists
     const [userExists] = await pool.query('SELECT * FROM users WHERE login = ?', [login]);
     if (userExists.length > 0) {
       return res.status(400).json({ message: 'User with this login already exists' });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create user
-    const [result] = await pool.query(
-      'INSERT INTO users (first_name, last_name, login, password, role) VALUES (?, ?, ?, ?, ?)',
-      [first_name, last_name || null, login, hashedPassword, role] // Use null if last_name is not provided
-    );
-    
-    const newUser = { id: result.insertId, first_name, last_name, login, role };
+    let newUser;
+    let token;
 
-    // If the role is master, also create a corresponding entry in the masters table
-    if (role === 'master') {
-        await pool.query(
-            'INSERT INTO masters (user_id, category_id, phone_number_1, place_name) VALUES (?, ?, ?, ?)',
-            // Using default values. Master can edit them later.
-            [newUser.id, 1, 'not-set', first_name] // Assuming category_id 1 exists
-        );
+    if (role === 'user') {
+      if (!first_name) {
+        return res.status(400).json({ message: 'First name is required for a user role' });
+      }
+      const [result] = await pool.query(
+        'INSERT INTO users (first_name, last_name, login, password, role) VALUES (?, ?, ?, ?, ?)',
+        [first_name, last_name || null, login, hashedPassword, role]
+      );
+      newUser = { id: result.insertId, first_name, last_name, login, role };
+      token = generateToken(result.insertId);
+
+    } else if (role === 'master') {
+      if (!first_name || !phone_number_1 || !address) {
+        return res.status(400).json({ message: 'Place name, phone number 1, and location are required for a master role' });
+      }
+
+      const locationParts = address.split(',').map(part => part.trim());
+      const latitude = parseFloat(locationParts[0]);
+      const longitude = parseFloat(locationParts[1]);
+
+      if (isNaN(latitude) || isNaN(longitude)) {
+        return res.status(400).json({ message: 'Invalid location format. Expected \'latitude, longitude\'' });
+      }
+
+      const [userResult] = await pool.query(
+        'INSERT INTO users (login, password, role, first_name) VALUES (?, ?, ?, ?)',
+        [login, hashedPassword, role, first_name]
+      );
+      const newUserId = userResult.insertId;
+
+      await pool.query(
+        'INSERT INTO masters (user_id, place_name, phone_number_1, phone_number_2, latitude, longitude, description, category_id, image_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [newUserId, first_name, phone_number_1, phone_number_2 || null, latitude, longitude, description || null, 1, imageUrl]
+      );
+      
+      newUser = { id: newUserId, first_name: first_name, login, role };
+      token = generateToken(newUserId);
+
+    } else {
+      return res.status(400).json({ message: 'Invalid role specified' });
     }
 
     res.status(201).json({
       ...newUser,
-      token: generateToken(newUser.id),
+      token,
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -69,7 +104,6 @@ const loginUser = async (req, res) => {
 
     const user = users[0];
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -148,4 +182,4 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile };
+module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, checkLogin };
