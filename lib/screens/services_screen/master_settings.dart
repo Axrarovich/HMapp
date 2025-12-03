@@ -1,7 +1,7 @@
-import 'dart:io';
-import 'package:comply/services/auth_service.dart';
+import 'package:comply/config/constants.dart';
+import 'package:comply/services/master_service.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:comply/services/auth_service.dart';
 import '../auth/master_signin_screen.dart';
 import 'edit_hotel.dart';
 import 'master_about_us_screen.dart';
@@ -17,9 +17,9 @@ class MasterSettingsScreen extends StatefulWidget {
 
 class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
   final AuthService _authService = AuthService();
+  final MasterService _masterService = MasterService();
   Map<String, dynamic>? _masterProfile;
   bool _isLoading = true;
-
 
   @override
   void initState() {
@@ -32,21 +32,20 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
       _isLoading = true;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final profileData = await _masterService.getMasterProfile();
       setState(() {
-        _masterProfile = {
-          'first_name': prefs.getString('first_name') ?? 'Master',
-          'login': prefs.getString('login') ?? '',
-        };
+        _masterProfile = profileData;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load profile: $e')),
-      );
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load profile: $e')),
+        );
+      }
     }
   }
 
@@ -56,7 +55,7 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const MasterSignInScreen()),
-        (route) => false,
+            (route) => false,
       );
     }
   }
@@ -64,38 +63,39 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text(
-            'Settings',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            IconButton(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout, color: Colors.red),
-            ),
-          ],
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'Settings',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    _buildUserCard(),
-                    const SizedBox(height: 24),
-                    _buildSettingsList(context),
-                  ],
-                ),
-              ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout, color: Colors.red),
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            _buildUserCard(),
+            const SizedBox(height: 24),
+            _buildSettingsList(context),
+          ], 
+        ),
+      ),
     );
   }
 
   Widget _buildUserCard() {
+    final imageUrl = _masterProfile?['image_url'];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -112,9 +112,15 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
       ),
       child: Row(
         children: [
-           const CircleAvatar(
+          CircleAvatar(
             radius: 30,
-            backgroundImage: AssetImage("assets/images/worker.jpg"), 
+            backgroundColor: Colors.grey[200],
+            backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
+                ? NetworkImage(Uri.parse(baseUrl).resolve(imageUrl).toString())
+                : null,
+            child: (imageUrl == null || imageUrl.isEmpty)
+                ? const Icon(Icons.person, size: 30, color: Colors.grey)
+                : null,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -139,12 +145,14 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
           ),
           IconButton(
             onPressed: () {
-               Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MasterEditProfileScreen(login: ""), // Passing empty for now
-                ),
-              ).then((_) => _loadMasterProfile()); // Refresh on return
+              if (_masterProfile != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MasterEditProfileScreen(initialProfileData: _masterProfile!),
+                  ),
+                ).then((_) => _loadMasterProfile()); // Refresh on return
+              }
             },
             icon: const Icon(Icons.edit_outlined),
             color: Colors.blue,
@@ -170,22 +178,20 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
       ),
       child: Column(
         children: [
-          // The "Edit Hotel" seems specific to a hotel app, a master might edit their service details.
-          // I will repurpose this to "Edit Service Details" later.
           _buildSettingsItem(
             context,
             icon: Icons.business_outlined,
             title: 'Edit Service Details',
             onTap: () async {
-              // TODO: Navigate to a screen to edit master's service details like description, location etc.
-              // For now, let's assume it's the EditHotelScreen for placeholder.
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EditHotelScreen(),
-                ),
-              );
-               _loadMasterProfile();
+              if (_masterProfile != null) {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EditHotelScreen(initialProfileData: _masterProfile!),
+                  ),
+                );
+                _loadMasterProfile();
+              }
             },
           ),
           const Divider(height: 1, indent: 16, endIndent: 16),

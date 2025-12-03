@@ -96,7 +96,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text(
-          'Orders Dashboard',
+          'Dashboard',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         bottom: TabBar(

@@ -43,7 +43,7 @@ class _OrdersPanelScreenState extends State<OrdersPanelScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.hotel),
-            label: 'My Rooms', // Changed from 'By Hotel'
+            label: 'Rooms',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

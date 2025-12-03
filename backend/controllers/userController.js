@@ -22,7 +22,7 @@ const checkLogin = async (req, res) => {
 // Register a new user
 const registerUser = async (req, res) => {
   const { first_name, last_name, login, password, role, phone_number_1, phone_number_2, address, description } = req.body;
-  const imageUrl = req.file ? req.file.path : null; // Get the path of the uploaded image
+  const imageUrl = req.file ? req.file.path.replace(/\\/g, '/') : null; // Get the path of the uploaded image and normalize
 
   if (!login || !password || !role) {
     return res.status(400).json({ message: 'Please provide login, password, and role' });
@@ -182,4 +182,39 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, checkLogin };
+// @desc    Delete user profile
+// @route   DELETE /api/users/profile
+// @access  Private
+const deleteUserProfile = async (req, res) => {
+  try {
+    // In a transaction to ensure atomicity
+    await pool.query('START TRANSACTION');
+
+    const userId = req.user.id;
+
+    // Get the user's role
+    const [users] = await pool.query('SELECT role FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+      await pool.query('ROLLBACK');
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const role = users[0].role;
+
+    // If the user is a master, delete their associated master data first
+    if (role === 'master') {
+      await pool.query('DELETE FROM masters WHERE user_id = ?', [userId]);
+    }
+
+    // Delete the user
+    await pool.query('DELETE FROM users WHERE id = ?', [userId]);
+
+    await pool.query('COMMIT');
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, deleteUserProfile, checkLogin };

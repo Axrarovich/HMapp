@@ -41,4 +41,10 @@ router.get('/profile', protect, userController.getUserProfile);
 // @access  Private
 router.put('/profile', protect, userController.updateUserProfile);
 
+// @route   DELETE api/users/profile
+// @desc    Delete user profile
+// @access  Private
+router.delete('/profile', protect, userController.deleteUserProfile);
+
+
 module.exports = router;

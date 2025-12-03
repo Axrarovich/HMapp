@@ -52,6 +52,12 @@ class _InformationScreenState extends State<InformationScreen> {
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
+      if (_image == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select an image')),
+        );
+        return;
+      }
       setState(() {
         _isLoading = true;
       });

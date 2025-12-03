@@ -8,6 +8,7 @@ class AuthService {
   final String _registerUrl = '$baseUrl/users/register';
   final String _loginUrl = '$baseUrl/users/login';
   final String _updateUserUrl = '$baseUrl/users/profile';
+  final String _deleteUserUrl = '$baseUrl/users/profile'; // Same URL, but DELETE method
   final String _checkLoginUrl = '$baseUrl/users/check-login';
 
   Future<bool> checkLogin(String login) async {
@@ -112,6 +113,25 @@ class AuthService {
         throw Exception('Failed to update profile: ${errorBody['message']}');
       } catch (e) {
         throw Exception('Failed to update profile: ${response.body}');
+      }
+    }
+  }
+
+  Future<void> deleteUser() async {
+    final token = await getToken();
+    final response = await http.delete(
+      Uri.parse(_deleteUserUrl),
+      headers: <String, String>{
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      try {
+        final errorBody = jsonDecode(response.body);
+        throw Exception('Failed to delete account: ${errorBody['message']}');
+      } catch (e) {
+        throw Exception('Failed to delete account: ${response.body}');
       }
     }
   }

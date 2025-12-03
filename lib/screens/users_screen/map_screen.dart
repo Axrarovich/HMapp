@@ -1,9 +1,15 @@
+
 import 'dart:async';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:comply/config/constants.dart';
 import 'package:comply/screens/users_screen/create_order_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:comply/services/room_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 
 class Place {
@@ -22,12 +28,18 @@ class Place {
   });
 
   factory Place.fromJson(Map<String, dynamic> json) {
+    String? imageUrl = json['image_url'];
+    if (imageUrl != null && !imageUrl.startsWith('http')) {
+      final serverBaseUrl = baseUrl.replaceAll('/api', '');
+      imageUrl = '$serverBaseUrl/$imageUrl';
+    }
+
     return Place(
       id: json['id'],
       name: json['place_name'] ?? 'Unknown Place',
       latitude: json['latitude']?.toDouble() ?? 0.0,
       longitude: json['longitude']?.toDouble() ?? 0.0,
-      imageUrl: json['image_url'],
+      imageUrl: imageUrl,
     );
   }
 }
@@ -83,21 +95,68 @@ class _MapScreenState extends State<MapScreen> {
     _fetchAndSetMarkers();
   }
 
+  Future<BitmapDescriptor> _getMarkerIcon(String? imageUrl, Size size) async {
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return BitmapDescriptor.defaultMarker;
+    }
+    try {
+      final http.Response response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode == 200) {
+        final Uint8List bytes = response.bodyBytes;
+        final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+        final ui.FrameInfo fi = await codec.getNextFrame();
+        final ui.Image image = fi.image;
+
+        final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+        final Canvas canvas = Canvas(pictureRecorder);
+        final double radius = size.width / 2;
+        final Paint paint = Paint()..isAntiAlias = true;
+
+        final Path clipPath = Path()
+          ..addOval(Rect.fromCircle(center: Offset(radius, radius), radius: radius));
+
+        canvas.clipPath(clipPath);
+        
+        // Draw the image scaled to fit the circle
+        canvas.drawImageRect(
+          image,
+          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          paint,
+        );
+
+        final ui.Image recordedImage = await pictureRecorder.endRecording().toImage(size.width.toInt(), size.height.toInt());
+        final ByteData? byteData = await recordedImage.toByteData(format: ui.ImageByteFormat.png);
+        final Uint8List pngBytes = byteData!.buffer.asUint8List();
+
+        return BitmapDescriptor.fromBytes(pngBytes);
+      }
+    } catch (e) {
+      print('Error creating circular marker image: $e');
+    }
+    return BitmapDescriptor.defaultMarker;
+  }
+
   Future<void> _fetchAndSetMarkers() async {
     try {
       final masters = await _masterService.getMasters();
       final places = masters.map((m) => Place.fromJson(m)).where((p) => p.latitude != 0.0 && p.longitude != 0.0).toList();
 
-      final markers = places.map((place) {
-        return Marker(
-          markerId: MarkerId(place.id.toString()),
-          position: LatLng(place.latitude, place.longitude),
-          infoWindow: InfoWindow(title: place.name),
-          onTap: () {
-             _onMarkerTapped(place);
-          },
+      final Set<Marker> markers = {};
+      for (var place in places) {
+        final BitmapDescriptor icon = await _getMarkerIcon(place.imageUrl, const Size(120, 120));
+        markers.add(
+          Marker(
+            markerId: MarkerId(place.id.toString()),
+            position: LatLng(place.latitude, place.longitude),
+            infoWindow: InfoWindow(title: place.name),
+            icon: icon,
+            onTap: () {
+              _onMarkerTapped(place);
+            },
+          ),
         );
-      }).toSet();
+      }
 
       if (mounted) {
         setState(() {

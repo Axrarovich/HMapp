@@ -141,7 +141,8 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Manage Your Rooms'),
+        title: const Text('Rooms',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -183,10 +184,6 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
             },
           );
         },
-      ),
-       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showEditRoomDialog(),
-        child: const Icon(Icons.add),
       ),
     );
   }
