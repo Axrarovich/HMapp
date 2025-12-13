@@ -119,7 +119,14 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
                 ? NetworkImage(Uri.parse(baseUrl).resolve(imageUrl).toString())
                 : null,
             child: (imageUrl == null || imageUrl.isEmpty)
-                ? const Icon(Icons.person, size: 30, color: Colors.grey)
+                ? ClipOval(
+              child: Image.asset(
+                "assets/images/logo.jpg",
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+              ),
+            )
                 : null,
           ),
           const SizedBox(width: 16),

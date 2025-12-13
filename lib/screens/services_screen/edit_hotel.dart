@@ -25,6 +25,7 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
   String? _imageUrl;
   File? _imageFile;
   bool _isSaving = false;
+  bool _isFormChanged = false;
 
   @override
   void initState() {
@@ -35,16 +36,46 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
     _phone2Controller = TextEditingController(text: widget.initialProfileData['phone_number_2'] ?? '');
     _placeNameController = TextEditingController(text: widget.initialProfileData['place_name'] ?? '');
     _imageUrl = widget.initialProfileData['image_url'];
+
+    _placeNameController.addListener(_checkFormChanges);
+    _phone1Controller.addListener(_checkFormChanges);
+    _phone2Controller.addListener(_checkFormChanges);
+    _descriptionController.addListener(_checkFormChanges);
+    _locationController.addListener(_checkFormChanges);
   }
 
   @override
   void dispose() {
+    _placeNameController.removeListener(_checkFormChanges);
+    _phone1Controller.removeListener(_checkFormChanges);
+    _phone2Controller.removeListener(_checkFormChanges);
+    _descriptionController.removeListener(_checkFormChanges);
+    _locationController.removeListener(_checkFormChanges);
+
     _locationController.dispose();
     _descriptionController.dispose();
     _phone1Controller.dispose();
     _phone2Controller.dispose();
     _placeNameController.dispose();
     super.dispose();
+  }
+
+  void _checkFormChanges() {
+    final initialLocation = '${widget.initialProfileData['latitude'] ?? ''}, ${widget.initialProfileData['longitude'] ?? ''}';
+
+    final hasTextChanged = _placeNameController.text != (widget.initialProfileData['place_name'] ?? '') ||
+        _phone1Controller.text != (widget.initialProfileData['phone_number_1'] ?? '') ||
+        _phone2Controller.text != (widget.initialProfileData['phone_number_2'] ?? '') ||
+        _descriptionController.text != (widget.initialProfileData['description'] ?? '') ||
+        _locationController.text != initialLocation;
+
+    final hasImageChanged = _imageFile != null || _imageUrl != widget.initialProfileData['image_url'];
+
+    if (mounted) {
+      setState(() {
+        _isFormChanged = hasTextChanged || hasImageChanged;
+      });
+    }
   }
 
   Future<void> _pickImage() async {
@@ -56,6 +87,7 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
         _imageFile = File(pickedFile.path);
         _imageUrl = null; // Clear network image if a local file is picked
       });
+      _checkFormChanges();
     }
   }
 
@@ -64,6 +96,7 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
       _imageFile = null;
       _imageUrl = ''; // Set to empty to represent no image
     });
+    _checkFormChanges();
   }
 
   Future<void> _saveChanges() async {
@@ -346,7 +379,7 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _isSaving ? null : _saveChanges,
+                  onPressed: (_isSaving || !_isFormChanged) ? null : _saveChanges,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF009688),
                     minimumSize: const Size(double.infinity, 50),

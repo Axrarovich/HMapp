@@ -31,6 +31,7 @@ class _MasterEditProfileScreenState extends State<MasterEditProfileScreen> {
   bool _showNewPasswordFields = false;
   bool _isSaving = false;
   bool _isLoading = false;
+  bool _isFormChanged = false;
 
   @override
   void initState() {
@@ -39,6 +40,12 @@ class _MasterEditProfileScreenState extends State<MasterEditProfileScreen> {
     _placeNameController.text = widget.initialProfileData['place_name'] ?? '';
     _imageUrl = widget.initialProfileData['image_url'];
 
+    _loginController.addListener(_onFormChange);
+    _placeNameController.addListener(_onFormChange);
+    _oldPasswordController.addListener(_onFormChange);
+    _newPasswordController.addListener(_onFormChange);
+    _confirmPasswordController.addListener(_onFormChange);
+
     _oldPasswordController.addListener(() {
       if (mounted) {
         setState(() {
@@ -46,6 +53,20 @@ class _MasterEditProfileScreenState extends State<MasterEditProfileScreen> {
         });
       }
     });
+  }
+
+  void _onFormChange() {
+    final hasChanged = _loginController.text != (widget.initialProfileData['login'] ?? '') ||
+        _placeNameController.text != (widget.initialProfileData['place_name'] ?? '') ||
+        _oldPasswordController.text.isNotEmpty;
+
+    if (_isFormChanged != hasChanged) {
+      if (mounted) {
+        setState(() {
+          _isFormChanged = hasChanged;
+        });
+      }
+    }
   }
 
   Future<void> _saveChanges() async {
@@ -196,6 +217,12 @@ class _MasterEditProfileScreenState extends State<MasterEditProfileScreen> {
 
   @override
   void dispose() {
+    _loginController.removeListener(_onFormChange);
+    _placeNameController.removeListener(_onFormChange);
+    _oldPasswordController.removeListener(_onFormChange);
+    _newPasswordController.removeListener(_onFormChange);
+    _confirmPasswordController.removeListener(_onFormChange);
+
     _loginController.dispose();
     _placeNameController.dispose();
     _oldPasswordController.dispose();
@@ -366,7 +393,7 @@ class _MasterEditProfileScreenState extends State<MasterEditProfileScreen> {
                  _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : ElevatedButton(
-                        onPressed: _isSaving ? null : _saveChanges,
+                        onPressed: _isFormChanged && !_isSaving ? _saveChanges : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF009688),
                           minimumSize: const Size(double.infinity, 50),
