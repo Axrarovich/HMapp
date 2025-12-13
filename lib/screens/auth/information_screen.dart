@@ -64,10 +64,10 @@ class _InformationScreenState extends State<InformationScreen> {
 
       try {
         final masterData = <String, dynamic>{
-          'phone_number_1': _phoneController.text,
-          'phone_number_2': _phone2Controller.text,
-          'address': _addressController.text,
-          'description': _descriptionController.text,
+          'phone_number_1': _phoneController.text.trim(),
+          'phone_number_2': _phone2Controller.text.trim(),
+          'address': _addressController.text.trim(),
+          'description': _descriptionController.text.trim(),
         };
 
         if (_image != null) {
@@ -153,7 +153,7 @@ class _InformationScreenState extends State<InformationScreen> {
                             ),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
+                            if (value == null || value.trim().isEmpty) {
                               return 'Please enter your phone number';
                             }
                             return null;
@@ -203,7 +203,7 @@ class _InformationScreenState extends State<InformationScreen> {
                             ),
                           ),
                            validator: (value) {
-                            if (value == null || value.isEmpty) {
+                            if (value == null || value.trim().isEmpty) {
                               return 'Please select a location';
                             }
                             return null;
