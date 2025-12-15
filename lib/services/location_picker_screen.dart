@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({Key? key}) : super(key: key);
@@ -41,6 +42,59 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     }
   }
 
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location services are disabled.')),
+      );
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permissions are denied')),
+        );
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Location permissions are permanently denied, we cannot request permissions.')),
+      );
+      return;
+    }
+
+    final Position position = await Geolocator.getCurrentPosition();
+    final LatLng currentLatLng = LatLng(position.latitude, position.longitude);
+
+    setState(() {
+      _selectedPosition = currentLatLng;
+      _selectedMarker = Marker(
+        markerId: const MarkerId('selected-location'),
+        position: currentLatLng,
+      );
+    });
+
+    mapController.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: currentLatLng,
+          zoom: 19.0,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,6 +111,38 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             ),
             onTap: _onTap,
             markers: _selectedMarker != null ? {_selectedMarker!} : {},
+            zoomControlsEnabled: false,
+          ),
+          Positioned(
+            right: 10,
+            top: 0,
+            bottom: 0,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FloatingActionButton(
+                  mini: true,
+                  onPressed: () {
+                    mapController.animateCamera(CameraUpdate.zoomIn());
+                  },
+                  child: const Icon(Icons.add),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton(
+                  mini: true,
+                  onPressed: () {
+                    mapController.animateCamera(CameraUpdate.zoomOut());
+                  },
+                  child: const Icon(Icons.remove),
+                ),
+                const SizedBox(height: 16),
+                FloatingActionButton(
+                  mini: true,
+                  onPressed: _getCurrentLocation,
+                  child: const Icon(Icons.my_location),
+                ),
+              ],
+            ),
           ),
           if (_selectedPosition != null)
             Positioned(

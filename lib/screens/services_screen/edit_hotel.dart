@@ -94,7 +94,7 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
   void _removeImage() {
     setState(() {
       _imageFile = null;
-      _imageUrl = ''; // Set to empty to represent no image
+      _imageUrl = null; // Set to null to represent no image
     });
     _checkFormChanges();
   }
@@ -129,7 +129,7 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
+          SnackBar(content: Text('Failed to upload image: $e')),
         );
       }
     } finally {

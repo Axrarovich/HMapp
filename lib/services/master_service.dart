@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:comply/config/constants.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 import 'auth_service.dart';
 
 class MasterService {
@@ -83,9 +85,17 @@ class MasterService {
 
   Future<String> uploadImage(File imageFile) async {
     final token = await _authService.getToken();
+    final mimeType = lookupMimeType(imageFile.path);
+
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
     request.headers['Authorization'] = 'Bearer $token';
-    request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+    var multipartFile = await http.MultipartFile.fromPath(
+      'image',
+      imageFile.path,
+      contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+    );
+    request.files.add(multipartFile);
 
     var response = await request.send();
 
@@ -93,7 +103,8 @@ class MasterService {
       final responseBody = await response.stream.bytesToString();
       return jsonDecode(responseBody)['imageUrl'];
     } else {
-      throw Exception('Failed to upload image');
+      final responseBody = await response.stream.bytesToString();
+      throw Exception('Failed to upload image. Status code: ${response.statusCode}, Body: $responseBody');
     }
   }
 

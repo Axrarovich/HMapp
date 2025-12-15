@@ -30,15 +30,15 @@ class Place {
   factory Place.fromJson(Map<String, dynamic> json) {
     String? imageUrl = json['image_url'];
     if (imageUrl != null && !imageUrl.startsWith('http')) {
-      final serverBaseUrl = baseUrl.replaceAll('/api', '');
-      imageUrl = '$serverBaseUrl/$imageUrl';
+      final serverUri = Uri.parse(baseUrl.replaceAll('/api', ''));
+      imageUrl = serverUri.resolve(imageUrl).toString();
     }
 
     return Place(
       id: json['id'],
       name: json['place_name'] ?? 'Unknown Place',
-      latitude: json['latitude']?.toDouble() ?? 0.0,
-      longitude: json['longitude']?.toDouble() ?? 0.0,
+      latitude: double.tryParse(json['latitude'].toString()) ?? 0.0,
+      longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       imageUrl: imageUrl,
     );
   }
@@ -97,43 +97,56 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<BitmapDescriptor> _getMarkerIcon(String? imageUrl, Size size) async {
     if (imageUrl == null || imageUrl.isEmpty) {
+      // Return a default marker if the image URL is not available.
       return BitmapDescriptor.defaultMarker;
     }
+
     try {
+      // Fetch the image from the network.
       final http.Response response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode == 200) {
         final Uint8List bytes = response.bodyBytes;
-        final ui.Codec codec = await ui.instantiateImageCodec(bytes);
+        // Decode the image to the specified size for efficiency.
+        final ui.Codec codec = await ui.instantiateImageCodec(
+          bytes,
+          targetWidth: size.width.toInt(),
+          targetHeight: size.height.toInt(),
+        );
         final ui.FrameInfo fi = await codec.getNextFrame();
         final ui.Image image = fi.image;
 
         final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
         final Canvas canvas = Canvas(pictureRecorder);
-        final double radius = size.width / 2;
         final Paint paint = Paint()..isAntiAlias = true;
+        final double radius = size.width / 2;
 
+        // Create a circular path to clip the canvas.
         final Path clipPath = Path()
           ..addOval(Rect.fromCircle(center: Offset(radius, radius), radius: radius));
-
         canvas.clipPath(clipPath);
-        
-        // Draw the image scaled to fit the circle
-        canvas.drawImageRect(
-          image,
-          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-          Rect.fromLTWH(0, 0, size.width, size.height),
-          paint,
+
+        // Draw the image onto the canvas.
+        canvas.drawImage(image, Offset.zero, paint);
+
+        // Convert the canvas to a PNG image.
+        final ui.Image recordedImage = await pictureRecorder.endRecording().toImage(
+          size.width.toInt(),
+          size.height.toInt(),
         );
-
-        final ui.Image recordedImage = await pictureRecorder.endRecording().toImage(size.width.toInt(), size.height.toInt());
         final ByteData? byteData = await recordedImage.toByteData(format: ui.ImageByteFormat.png);
-        final Uint8List pngBytes = byteData!.buffer.asUint8List();
-
-        return BitmapDescriptor.fromBytes(pngBytes);
+        
+        if (byteData != null) {
+            final Uint8List pngBytes = byteData.buffer.asUint8List();
+            return BitmapDescriptor.fromBytes(pngBytes);
+        }
+      } else {
+        print('Error fetching marker image: ${response.statusCode}');
       }
     } catch (e) {
       print('Error creating circular marker image: $e');
     }
+
+    // Return a default marker in case of any error.
     return BitmapDescriptor.defaultMarker;
   }
 
