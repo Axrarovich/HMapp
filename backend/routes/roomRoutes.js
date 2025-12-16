@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const roomController = require('../controllers/roomController');
 const { protect } = require('../middleware/authMiddleware');
+const multer = require('multer');
+const path = require('path');
 
 // Middleware to ensure the user is a master
 const isMaster = (req, res, next) => {
@@ -12,31 +14,36 @@ const isMaster = (req, res, next) => {
   }
 };
 
-// @route   GET api/rooms/master
-// @desc    Get all rooms for the logged-in master
-// @access  Private (Master)
-router.get('/master', protect, isMaster, roomController.getRoomsForMaster);
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename(req, file, cb) {
+    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
+  },
+});
 
-// @route   GET api/rooms/place/:master_id
-// @desc    Get all rooms for a specific place (for users)
-// @access  Public
+function checkFileType(file, cb) {
+  const filetypes = /jpg|jpeg|png/;
+  if (!file.originalname.match(new RegExp(`\.(${filetypes.source})$`, 'i'))) {
+    return cb(new Error('Images only!'), false);
+  }
+  cb(null, true);
+}
+
+const upload = multer({ storage, fileFilter: checkFileType });
+
+// GET routes
+router.get('/master', protect, isMaster, roomController.getRoomsForMaster);
 router.get('/place/:master_id', roomController.getRoomsForPlace);
 
+// POST route
+router.post('/', protect, isMaster, upload.single('image'), roomController.createRoom);
 
-// @route   POST api/rooms
-// @desc    Create a new room
-// @access  Private (Master)
-router.post('/', protect, isMaster, roomController.createRoom);
-
-// @route   PUT api/rooms/:id
-// @desc    Update a room
-// @access  Private (Master)
+// PUT route - The controller will handle the multipart logic internally
 router.put('/:id', protect, isMaster, roomController.updateRoom);
 
-// @route   DELETE api/rooms/:id
-// @desc    Delete a room
-// @access  Private (Master)
+// DELETE route
 router.delete('/:id', protect, isMaster, roomController.deleteRoom);
-
 
 module.exports = router;
