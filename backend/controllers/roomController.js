@@ -1,33 +1,6 @@
 const pool = require('../config/db');
-const multer = require('multer');
-const path = require('path');
 
-// Multer config
-const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename(req, file, cb) {
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-  },
-});
-
-function checkFileType(file, cb) {
-  const filetypes = /jpg|jpeg|png/;
-  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = filetypes.test(file.mimetype);
-
-  if (extname && mimetype) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Images only!'));
-  }
-}
-
-const upload = multer({ storage, fileFilter: checkFileType });
-const uploadSingleImage = upload.single('image');
-
-// Helper function to get master_id
+// Helper function to get master_id from user_id
 async function getMasterId(userId) {
   const [masters] = await pool.query('SELECT id FROM masters WHERE user_id = ?', [userId]);
   if (masters.length === 0) {
@@ -47,7 +20,7 @@ const getRoomsForMaster = async (req, res) => {
   }
 };
 
-// @desc    Get all rooms for a specific place
+// @desc    Get all rooms for a specific place (public)
 const getRoomsForPlace = async (req, res) => {
   try {
     const [rooms] = await pool.query('SELECT * FROM rooms WHERE master_id = ?', [req.params.master_id]);
@@ -60,6 +33,7 @@ const getRoomsForPlace = async (req, res) => {
 // @desc    Create a new room
 const createRoom = async (req, res) => {
   const { room_number, description, price, capacity } = req.body;
+  // image_url is derived from the file uploaded via multer middleware in the route
   const imageUrl = req.file ? `/${req.file.path.replace(/\\/g, '/')}` : null;
 
   try {
@@ -70,79 +44,86 @@ const createRoom = async (req, res) => {
     );
     res.status(201).json({ id: result.insertId, master_id: masterId, ...req.body, image_url: imageUrl });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: `Failed to create room: ${error.message}` });
   }
 };
 
-// @desc    Update a room (handles both JSON and multipart)
+// @desc    Update an existing room
 const updateRoom = async (req, res) => {
-  const processUpdate = async () => {
-    try {
-      const { id } = req.params;
-      const { room_number, description, price, capacity, is_available } = req.body;
-      
-      const masterId = await getMasterId(req.user.id);
-      const [rooms] = await pool.query('SELECT * FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
+  try {
+    const { id } = req.params;
+    const { room_number, description, price, capacity, is_available } = req.body;
+    
+    const masterId = await getMasterId(req.user.id);
 
-      if (rooms.length === 0) {
-        return res.status(404).json({ message: 'Room not found or not authorized.' });
-      }
-
-      const existingRoom = rooms[0];
-
-      // If a new file is uploaded, use its path. Otherwise, keep the existing URL.
-      const imageUrl = req.file ? `/${req.file.path.replace(/\\/g, '/')}` : req.body.image_url || existingRoom.image_url;
-
-
-      const sql = `UPDATE rooms SET 
-                    room_number = ?, 
-                    description = ?, 
-                    price = ?, 
-                    capacity = ?, 
-                    is_available = ?, 
-                    image_url = ? 
-                  WHERE id = ?`;
-
-      const params = [
-        room_number !== undefined ? room_number : existingRoom.room_number,
-        description !== undefined ? description : existingRoom.description,
-        price !== undefined ? price : existingRoom.price,
-        capacity !== undefined ? capacity : existingRoom.capacity,
-        is_available !== undefined ? is_available : existingRoom.is_available,
-        imageUrl, // Use the final image URL
-        id
-      ];
-
-      await pool.query(sql, params);
-      res.json({ message: 'Room updated successfully' });
-    } catch (error) {
-      res.status(500).json({ message: `Server error: ${error.message}` });
+    // First, verify the room exists and belongs to the master
+    const [rooms] = await pool.query('SELECT * FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
+    if (rooms.length === 0) {
+      return res.status(404).json({ message: 'Room not found or not authorized.' });
     }
-  };
+    const existingRoom = rooms[0];
 
-  // Multer will process the form. If there's an image, req.file will be populated.
-  uploadSingleImage(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({ message: err.message });
+    // Determine the image URL. Default to the existing one.
+    let imageUrl = existingRoom.image_url;
+    if (req.file) {
+      // If a new file is uploaded, use its path.
+      imageUrl = `/${req.file.path.replace(/\\/g, '/')}`;
     }
-    processUpdate();
-  });
+    // Note: To remove an image, the client would need to send a specific signal,
+    // which is not implemented here. This logic just updates or keeps the image.
+
+    const sql = `UPDATE rooms SET 
+                  room_number = ?, 
+                  description = ?, 
+                  price = ?, 
+                  capacity = ?, 
+                  is_available = ?, 
+                  image_url = ? 
+                WHERE id = ? AND master_id = ?`;
+
+    const params = [
+      room_number !== undefined ? room_number : existingRoom.room_number,
+      description !== undefined ? description : existingRoom.description,
+      price !== undefined ? price : existingRoom.price,
+      capacity !== undefined ? capacity : existingRoom.capacity,
+      is_available !== undefined ? is_available : existingRoom.is_available,
+      imageUrl,
+      id,
+      masterId
+    ];
+
+    await pool.query(sql, params);
+    res.json({ message: 'Room updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: `Failed to update room: ${error.message}` });
+  }
 };
-
 
 // @desc    Delete a room
 const deleteRoom = async (req, res) => {
   const { id } = req.params;
   try {
     const masterId = await getMasterId(req.user.id);
-    await pool.query('DELETE FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
+    const [result] = await pool.query('DELETE FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Room not found or not authorized.' });
+    }
+
     res.json({ message: 'Room deleted successfully' });
   } catch (error) {
+    // Check for foreign key constraint error
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {
-      return res.status(400).json({ message: 'Cannot delete this room because it is associated with existing orders.' });
+      return res.status(400).json({ message: 'Cannot delete room. It is currently booked in an active order.' });
     }
     res.status(500).json({ message: error.message });
   }
 };
 
-module.exports = { getRoomsForMaster, getRoomsForPlace, createRoom, updateRoom, deleteRoom };
+module.exports = { 
+  getRoomsForMaster, 
+  getRoomsForPlace, 
+  createRoom, 
+  updateRoom, 
+  deleteRoom 
+};

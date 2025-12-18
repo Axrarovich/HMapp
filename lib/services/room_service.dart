@@ -63,8 +63,14 @@ class RoomService {
     var streamedResponse = await request.send();
 
     if (streamedResponse.statusCode != 200) {
+      // Consume the stream to get the response body
       final responseBody = await streamedResponse.stream.bytesToString();
       throw Exception('Failed to update room: $responseBody');
+    } else {
+      // Important: even on success, we must consume the stream if we don't return the body,
+      // though typically stream.bytesToString() is used for reading body.
+      // If we don't read it, it's generally okay for small responses, but reading it ensures full completion.
+       await streamedResponse.stream.bytesToString();
     }
   }
 
