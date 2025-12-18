@@ -80,9 +80,6 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
       'is_available': '1', 
     };
 
-    // CRITICAL FIX: The logic that added the old image_url was removed.
-    // The client should not decide what URL to send; the server will handle it.
-
     try {
       if (widget.room != null) {
         await _roomService.updateRoom(widget.room!.id, roomData, _image);
@@ -179,7 +176,13 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
               else if (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty)
                  Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
-                  child: Image.network(baseUrl + widget.room!.imageUrl!, height: 200, width: double.infinity, fit: BoxFit.cover),
+                  child: Image.network(
+                    Uri.parse(baseUrl.replaceAll('/api', '')).resolve(widget.room!.imageUrl!).toString(),
+                    height: 200, 
+                    width: double.infinity, 
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.error)),
+                  ),
                 ),
               // Add photo button
               ElevatedButton.icon(

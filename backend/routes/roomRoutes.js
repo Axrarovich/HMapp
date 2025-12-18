@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
   },
 });
 
-function checkFileType(file, cb) {
+function checkFileType(req, file, cb) {
   const filetypes = /jpg|jpeg|png/;
   if (!file.originalname.match(new RegExp(`\.(${filetypes.source})$`, 'i'))) {
     return cb(new Error('Images only!'), false);
@@ -41,7 +41,8 @@ router.get('/place/:master_id', roomController.getRoomsForPlace);
 router.post('/', protect, isMaster, upload.single('image'), roomController.createRoom);
 
 // PUT route - The controller will handle the multipart logic internally
-router.put('/:id', protect, isMaster, roomController.updateRoom);
+// Use upload.single('image') to parse multipart data even if no file is uploaded
+router.put('/:id', protect, isMaster, upload.single('image'), roomController.updateRoom);
 
 // DELETE route
 router.delete('/:id', protect, isMaster, roomController.deleteRoom);
