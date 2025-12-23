@@ -23,6 +23,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
   File? _image;
   bool _isFormValid = false;
   bool _isEditing = false;
+  bool _hasChanges = false;
   final RoomService _roomService = RoomService();
 
   @override
@@ -38,6 +39,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     _roomNumberController.addListener(_validateForm);
     _capacityController.addListener(_validateForm);
     _priceController.addListener(_validateForm);
+    _descriptionController.addListener(_validateForm);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _validateForm());
   }
@@ -53,8 +55,22 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
 
   void _validateForm() {
     if (_formKey.currentState != null) {
+      final isValid = _formKey.currentState!.validate();
+      bool changes = false;
+      
+      if (widget.room == null) {
+        changes = true;
+      } else {
+        changes = _image != null ||
+            _roomNumberController.text != (widget.room?.roomNumber ?? '') ||
+            _capacityController.text != (widget.room?.capacity.toString() ?? '') ||
+            _priceController.text != (widget.room?.price.toString() ?? '') ||
+            _descriptionController.text != (widget.room?.description ?? '');
+      }
+
       setState(() {
-        _isFormValid = _formKey.currentState!.validate();
+        _isFormValid = isValid;
+        _hasChanges = changes;
       });
     }
   }
@@ -65,6 +81,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
+        _validateForm();
       });
     }
   }
@@ -83,11 +100,18 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     try {
       if (widget.room != null) {
         await _roomService.updateRoom(widget.room!.id, roomData, _image);
+        if (mounted) {
+          setState(() {
+            _isEditing = false;
+            _hasChanges = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated successfully')));
+        }
       } else {
         await _roomService.createRoom(roomData, _image);
-      }
-      if (mounted) {
+        if (mounted) {
           Navigator.of(context).pop();
+        }
       }
     } catch (e) {
        if (mounted) {
@@ -113,7 +137,8 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
-        title: Text(widget.room == null ? 'Add Room' : 'Edit Room'),
+        title: Text(widget.room == null ? 'Add Room' : (_isEditing ? 'Edit Room' : 'Room'),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),),
         actions: [
           if (widget.room != null && !_isEditing)
             IconButton(
@@ -127,8 +152,8 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
             ),
           if (_isEditing)
             IconButton(
-              icon: Icon(Icons.check_circle, color: _isFormValid ? Colors.blueAccent : Colors.grey, size: 28),
-              onPressed: _isFormValid ? _saveOrUpdateRoom : null,
+              icon: Icon(Icons.check_circle, color: (_isFormValid && _hasChanges) ? Colors.blueAccent : Colors.grey, size: 28),
+              onPressed: (_isFormValid && _hasChanges) ? _saveOrUpdateRoom : null,
             ),
         ],
       ),
