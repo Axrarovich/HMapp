@@ -1,4 +1,6 @@
 const pool = require('../config/db');
+const fs = require('fs');
+const path = require('path');
 
 // Helper function to get master_id from user_id
 async function getMasterId(userId) {
@@ -8,6 +10,27 @@ async function getMasterId(userId) {
   }
   return masters[0].id;
 }
+
+// Helper to delete file from filesystem
+const deleteFile = (filePath) => {
+  if (!filePath) return;
+  // filePath comes as '/uploads/...' from db.
+  // We need to resolve it relative to the root or where uploads are.
+  // Assuming 'uploads' is in the root of backend project.
+  
+  // imageUrl starts with /, so we remove it to get relative path
+  const relativePath = filePath.startsWith('/') ? filePath.substring(1) : filePath;
+  const fullPath = path.join(__dirname, '..', relativePath);
+  
+  fs.unlink(fullPath, (err) => {
+    if (err) {
+        // Ignore error if file doesn't exist, otherwise log it
+        if (err.code !== 'ENOENT') {
+            console.error('Failed to delete file:', fullPath, err);
+        }
+    }
+  });
+};
 
 // @desc    Get all rooms for the logged-in master
 const getRoomsForMaster = async (req, res) => {
@@ -52,7 +75,7 @@ const createRoom = async (req, res) => {
 const updateRoom = async (req, res) => {
   try {
     const { id } = req.params;
-    const { room_number, description, price, capacity, is_available } = req.body;
+    const { room_number, description, price, capacity, is_available, delete_image } = req.body;
     
     const masterId = await getMasterId(req.user.id);
 
@@ -65,12 +88,24 @@ const updateRoom = async (req, res) => {
 
     // Determine the image URL. Default to the existing one.
     let imageUrl = existingRoom.image_url;
+
+    // Handle explicit deletion
+    if (delete_image === 'true') {
+      if (existingRoom.image_url) {
+        deleteFile(existingRoom.image_url);
+      }
+      imageUrl = null;
+    }
+
+    // Handle new file upload
     if (req.file) {
-      // If a new file is uploaded, use its path.
+      // If we haven't already deleted the old image (because delete_image wasn't true),
+      // and there was an old image, delete it now because we are replacing it.
+      if (existingRoom.image_url && delete_image !== 'true') {
+        deleteFile(existingRoom.image_url);
+      }
       imageUrl = `/${req.file.path.replace(/\\/g, '/')}`;
     }
-    // Note: To remove an image, the client would need to send a specific signal,
-    // which is not implemented here. This logic just updates or keeps the image.
 
     const sql = `UPDATE rooms SET 
                   room_number = ?, 
@@ -104,13 +139,27 @@ const deleteRoom = async (req, res) => {
   const { id } = req.params;
   try {
     const masterId = await getMasterId(req.user.id);
-    const [result] = await pool.query('DELETE FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
     
-    if (result.affectedRows === 0) {
+    // Check if room exists and get image url before deleting
+    const [rooms] = await pool.query('SELECT image_url FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
+    if (rooms.length === 0) {
       return res.status(404).json({ message: 'Room not found or not authorized.' });
     }
+    const roomToDelete = rooms[0];
 
-    res.json({ message: 'Room deleted successfully' });
+    const [result] = await pool.query('DELETE FROM rooms WHERE id = ? AND master_id = ?', [id, masterId]);
+    
+    if (result.affectedRows > 0) {
+      // Delete image file if exists
+      if (roomToDelete.image_url) {
+        deleteFile(roomToDelete.image_url);
+      }
+      res.json({ message: 'Room deleted successfully' });
+    } else {
+      // Should not be reached given previous check, but good for safety
+      res.status(404).json({ message: 'Room not found or not authorized.' });
+    }
+
   } catch (error) {
     // Check for foreign key constraint error
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {

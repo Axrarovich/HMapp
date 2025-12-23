@@ -21,6 +21,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
   late TextEditingController _priceController;
   late TextEditingController _descriptionController;
   File? _image;
+  bool _deleteImage = false;
   bool _isFormValid = false;
   bool _isEditing = false;
   bool _hasChanges = false;
@@ -62,6 +63,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
         changes = true;
       } else {
         changes = _image != null ||
+            _deleteImage ||
             _roomNumberController.text != (widget.room?.roomNumber ?? '') ||
             _capacityController.text != (widget.room?.capacity.toString() ?? '') ||
             _priceController.text != (widget.room?.price.toString() ?? '') ||
@@ -81,9 +83,20 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
+        _deleteImage = false;
         _validateForm();
       });
     }
+  }
+
+  void _removeImage() {
+    setState(() {
+      _image = null;
+      if (widget.room?.imageUrl != null) {
+        _deleteImage = true;
+      }
+      _validateForm();
+    });
   }
 
   Future<void> _saveOrUpdateRoom() async {
@@ -96,6 +109,10 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
       'description': _descriptionController.text,
       'is_available': '1', 
     };
+
+    if (_deleteImage) {
+      roomData['delete_image'] = 'true';
+    }
 
     try {
       if (widget.room != null) {
@@ -121,11 +138,38 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
   }
 
   Future<void> _deleteRoom() async {
-    try {
-      await _roomService.deleteRoom(widget.room!.id);
-      Navigator.of(context).pop();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete room: $e')));
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Room'),
+          content: const Text('Are you sure you want to delete this room?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      try {
+        await _roomService.deleteRoom(widget.room!.id);
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to delete room: $e')));
+        }
+      }
     }
   }
 
@@ -217,6 +261,8 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
   }
 
   Widget _buildImageHeader() {
+    bool hasImage = _image != null || (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty && !_deleteImage);
+
     return GestureDetector(
       onTap: _isEditing ? _pickImage : null,
       child: Container(
@@ -239,7 +285,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
           children: [
             if (_image != null)
               Image.file(_image!, fit: BoxFit.cover)
-            else if (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty)
+            else if (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty && !_deleteImage)
                Image.network(
                   Uri.parse(baseUrl.replaceAll('/api', '')).resolve(widget.room!.imageUrl!).toString(),
                   fit: BoxFit.cover,
@@ -260,14 +306,34 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
               Positioned(
                 bottom: 16,
                 right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
-                  ),
-                  child: const Icon(Icons.camera_alt, color: Colors.blueAccent),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (hasImage) ...[
+                      GestureDetector(
+                        onTap: _removeImage,
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+                          ),
+                          child: const Icon(Icons.delete_outline, color: Colors.red),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+                      ),
+                      child: const Icon(Icons.camera_alt, color: Colors.blueAccent),
+                    ),
+                  ],
                 ),
               ),
           ],
