@@ -135,7 +135,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   },
                   child: const Icon(Icons.remove),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 FloatingActionButton(
                   mini: true,
                   onPressed: _getCurrentLocation,

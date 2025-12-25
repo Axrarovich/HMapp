@@ -61,7 +61,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this); // pending, accepted, in_progress, completed, cancelled
+    _tabController = TabController(length: 3, vsync: this); // All, Approved, Cancelled
     _fetchOrders();
   }
 
@@ -101,12 +101,9 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
         ),
         bottom: TabBar(
           controller: _tabController,
-          isScrollable: true,
           tabs: const [
-            Tab(text: 'Pending'),
-            Tab(text: 'Accepted'),
-            Tab(text: 'In Progress'),
-            Tab(text: 'Completed'),
+            Tab(text: 'All'),
+            Tab(text: 'Approved'),
             Tab(text: 'Cancelled'),
           ],
         ),
@@ -127,11 +124,9 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
           return TabBarView(
             controller: _tabController,
             children: [
-              _buildOrderList(allOrders, 'pending'),
-              _buildOrderList(allOrders, 'accepted'),
-              _buildOrderList(allOrders, 'in_progress'),
-              _buildOrderList(allOrders, 'completed'),
-              _buildOrderList(allOrders, 'cancelled'),
+              _buildOrderList(allOrders, null), // All
+              _buildOrderList(allOrders, ['accepted', 'in_progress', 'completed']), // Approved (Active/Completed)
+              _buildOrderList(allOrders, ['cancelled']), // Cancelled
             ],
           );
         },
@@ -139,12 +134,18 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
     );
   }
 
-  Widget _buildOrderList(List<Order> allOrders, String status) {
-    final filteredOrders =
-    allOrders.where((order) => order.status == status).toList();
+  Widget _buildOrderList(List<Order> allOrders, List<String>? statuses) {
+    final filteredOrders = statuses == null 
+        ? allOrders 
+        : allOrders.where((order) => statuses.contains(order.status)).toList();
 
     if (filteredOrders.isEmpty) {
-      return Center(child: Text("There are no $status orders."));
+      String statusText = "orders";
+      if (statuses != null) {
+        if (statuses.contains('cancelled') && statuses.length == 1) statusText = "cancelled orders";
+        else if (statuses.length > 1) statusText = "approved orders";
+      }
+      return Center(child: Text("There are no $statusText."));
     }
 
     return ListView.builder(

@@ -5,6 +5,7 @@ import 'package:comply/screens/services_screen/hotel_page.dart';
 import 'package:comply/services/room_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class AddEditRoomScreen extends StatefulWidget {
   final Room? room;
@@ -34,7 +35,14 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
 
     _roomNumberController = TextEditingController(text: widget.room?.roomNumber);
     _capacityController = TextEditingController(text: widget.room?.capacity.toString());
-    _priceController = TextEditingController(text: widget.room?.price.toString());
+    
+    String initialPrice = '';
+    if (widget.room != null) {
+      // Format price: 500000 -> 500 000
+      initialPrice = NumberFormat("#,###", "en_US").format(widget.room!.price).replaceAll(",", " ");
+    }
+    _priceController = TextEditingController(text: initialPrice);
+    
     _descriptionController = TextEditingController(text: widget.room?.description);
 
     _roomNumberController.addListener(_validateForm);
@@ -62,11 +70,24 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
       if (widget.room == null) {
         changes = true;
       } else {
+        // Remove spaces for comparison
+        String currentPriceStr = _priceController.text.replaceAll(' ', '');
+        double? currentPrice = double.tryParse(currentPriceStr);
+        
+        // Simple change detection
+        bool priceChanged = false;
+        if (currentPrice != null) {
+            priceChanged = currentPrice != widget.room!.price;
+        } else {
+            // If empty or invalid and was not empty before, it's a change (though validation might fail)
+            priceChanged = _priceController.text != (widget.room?.price.toString() ?? '');
+        }
+
         changes = _image != null ||
             _deleteImage ||
             _roomNumberController.text != (widget.room?.roomNumber ?? '') ||
             _capacityController.text != (widget.room?.capacity.toString() ?? '') ||
-            _priceController.text != (widget.room?.price.toString() ?? '') ||
+            priceChanged ||
             _descriptionController.text != (widget.room?.description ?? '');
       }
 
@@ -105,7 +126,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     final roomData = {
       'room_number': _roomNumberController.text,
       'capacity': _capacityController.text,
-      'price': _priceController.text,
+      'price': _priceController.text.replaceAll(' ', ''), // Clean the price
       'description': _descriptionController.text,
       'is_available': '1', 
     };
@@ -273,7 +294,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(24)),
           boxShadow: [
              BoxShadow(
-               color: Colors.black.withValues(alpha: 0.05),
+               color: Colors.black.withOpacity(0.05),
                blurRadius: 10,
                offset: const Offset(0, 4),
              )
@@ -356,7 +377,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -372,7 +393,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: Colors.grey[600]),
-          prefixIcon: Icon(icon, color: Colors.blueAccent.withValues(alpha: 0.7)),
+          prefixIcon: Icon(icon, color: Colors.blueAccent.withOpacity(0.7)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,

@@ -1,6 +1,7 @@
 import 'package:comply/screens/services_screen/add_edit_room_screen.dart';
 import 'package:comply/services/room_service.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 // Re-using the Room model from map_screen.dart would be better, but for simplicity, defining it here.
 class Room {
@@ -53,8 +54,12 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: Colors.black,
         title: const Text('Rooms',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),),
         actions: [
@@ -82,21 +87,99 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
 
           final rooms = snapshot.data!;
           return ListView.builder(
+            padding: const EdgeInsets.only(top: 10, bottom: 20),
             itemCount: rooms.length,
             itemBuilder: (context, index) {
               final room = rooms[index];
-              return Card(
+              return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  title: Text(room.roomNumber ?? 'No name'),
-                  subtitle: Text('${room.price.toStringAsFixed(0)} UZS'),
-                  trailing: Icon(Icons.circle, color: room.isAvailable ? Colors.green : Colors.grey, size: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: InkWell(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => AddEditRoomScreen(room: room)),
                     ).then((_) => _fetchRooms());
                   },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.meeting_room_outlined, color: Colors.blue, size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    room.roomNumber ?? 'No Number',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  if (room.capacity != null && room.capacity!.isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.people_outline, size: 14, color: Colors.grey.shade600),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            room.capacity!,
+                                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${NumberFormat("#,###").format(room.price).replaceAll(",", " ")} UZS',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.circle, 
+                          color: room.isAvailable ? Colors.green : Colors.grey.shade300, 
+                          size: 12
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },

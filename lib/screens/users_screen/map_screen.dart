@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -11,6 +10,23 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
+import 'package:intl/intl.dart';
+
+// Helper function to resolve full image URL
+String? _resolveImageUrl(String? url) {
+  if (url == null || url.isEmpty) return null;
+  if (url.startsWith('http')) return url;
+  try {
+    // Assuming baseUrl is defined in constants.dart like 'http://ip:port/api'
+    final serverUri = Uri.parse(baseUrl.replaceAll('/api', ''));
+    // Ensure url doesn't start with / if we are using resolve, or handle it.
+    // resolve() handles paths starting with / correctly against the root.
+    return serverUri.resolve(url.startsWith('/') ? url.substring(1) : url).toString(); 
+  } catch (e) {
+    print("Error resolving URL: $e");
+    return url;
+  }
+}
 
 class Place {
   final int id;
@@ -28,18 +44,12 @@ class Place {
   });
 
   factory Place.fromJson(Map<String, dynamic> json) {
-    String? imageUrl = json['image_url'];
-    if (imageUrl != null && !imageUrl.startsWith('http')) {
-      final serverUri = Uri.parse(baseUrl.replaceAll('/api', ''));
-      imageUrl = serverUri.resolve(imageUrl).toString();
-    }
-
     return Place(
       id: json['id'],
       name: json['place_name'] ?? 'Unknown Place',
       latitude: double.tryParse(json['latitude'].toString()) ?? 0.0,
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
-      imageUrl: imageUrl,
+      imageUrl: _resolveImageUrl(json['image_url']),
     );
   }
 }
@@ -51,8 +61,17 @@ class Room {
     final double price;
     final String? imageUrl;
     final bool isAvailable;
+    final int capacity;
 
-    Room({ required this.id, this.roomNumber, this.description, required this.price, this.imageUrl, required this.isAvailable });
+    Room({ 
+      required this.id, 
+      this.roomNumber, 
+      this.description, 
+      required this.price, 
+      this.imageUrl, 
+      required this.isAvailable,
+      required this.capacity,
+    });
 
     factory Room.fromJson(Map<String, dynamic> json) {
         return Room(
@@ -60,8 +79,9 @@ class Room {
             roomNumber: json['room_number'],
             description: json['description'],
             price: double.tryParse(json['price'].toString()) ?? 0.0,
-            imageUrl: json['image_url'],
+            imageUrl: _resolveImageUrl(json['image_url']),
             isAvailable: json['is_available'] == 1,
+            capacity: int.tryParse(json['capacity'].toString()) ?? 0,
         );
     }
 }
@@ -97,16 +117,13 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<BitmapDescriptor> _getMarkerIcon(String? imageUrl, Size size) async {
     if (imageUrl == null || imageUrl.isEmpty) {
-      // Return a default marker if the image URL is not available.
       return BitmapDescriptor.defaultMarker;
     }
 
     try {
-      // Fetch the image from the network.
       final http.Response response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode == 200) {
         final Uint8List bytes = response.bodyBytes;
-        // Decode the image to the specified size for efficiency.
         final ui.Codec codec = await ui.instantiateImageCodec(
           bytes,
           targetWidth: size.width.toInt(),
@@ -120,15 +137,11 @@ class _MapScreenState extends State<MapScreen> {
         final Paint paint = Paint()..isAntiAlias = true;
         final double radius = size.width / 2;
 
-        // Create a circular path to clip the canvas.
         final Path clipPath = Path()
           ..addOval(Rect.fromCircle(center: Offset(radius, radius), radius: radius));
         canvas.clipPath(clipPath);
-
-        // Draw the image onto the canvas.
         canvas.drawImage(image, Offset.zero, paint);
 
-        // Convert the canvas to a PNG image.
         final ui.Image recordedImage = await pictureRecorder.endRecording().toImage(
           size.width.toInt(),
           size.height.toInt(),
@@ -139,14 +152,11 @@ class _MapScreenState extends State<MapScreen> {
             final Uint8List pngBytes = byteData.buffer.asUint8List();
             return BitmapDescriptor.fromBytes(pngBytes);
         }
-      } else {
-        print('Error fetching marker image: ${response.statusCode}');
       }
     } catch (e) {
       print('Error creating circular marker image: $e');
     }
 
-    // Return a default marker in case of any error.
     return BitmapDescriptor.defaultMarker;
   }
 
@@ -227,56 +237,28 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _goToMyLocation() async {
     Location location = Location();
-
-    debugPrint("Checking location service...");
     bool serviceEnabled = await location.serviceEnabled();
     if (!serviceEnabled) {
-      debugPrint("Location service is disabled. Requesting service...");
       serviceEnabled = await location.requestService();
-      if (!serviceEnabled) {
-        debugPrint("Location service request was denied.");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location services are disabled.')),
-          );
-        }
-        return;
-      }
+      if (!serviceEnabled) return;
     }
-    debugPrint("Location service is enabled.");
 
-    debugPrint("Checking location permission...");
     PermissionStatus permissionGranted = await location.hasPermission();
     if (permissionGranted == PermissionStatus.denied) {
-      debugPrint("Location permission is denied. Requesting permission...");
       permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        debugPrint("Location permission request was denied.");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permissions are denied.')),
-          );
-        }
-        return;
-      }
+      if (permissionGranted != PermissionStatus.granted) return;
     }
-    debugPrint("Location permission is granted.");
 
     try {
-      debugPrint("Getting current location...");
       LocationData locationData = await location.getLocation();
-      debugPrint("Location received: ${locationData.latitude}, ${locationData.longitude}");
       final GoogleMapController controller = await _controller.future;
-      debugPrint("Moving camera to new location.");
       controller.animateCamera(CameraUpdate.newCameraPosition(
         CameraPosition(
           target: LatLng(locationData.latitude!, locationData.longitude!),
           zoom: 18,
         ),
       ));
-      debugPrint("Camera move initiated.");
     } catch (e) {
-      debugPrint("Error getting location: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to get location: $e')),
@@ -303,68 +285,62 @@ class _MapScreenState extends State<MapScreen> {
             onMapCreated: (GoogleMapController controller) {
               _controller.complete(controller);
             },
-            onTap: (_) => _hidePlaceDetails(), // Hide details when tapping on map
+            onTap: (_) => _hidePlaceDetails(),
           ),
            Positioned(
             right: 16.0,
-            bottom: 0,
-            top: 0,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: FloatingActionButton(
-                      heroTag: 'zoomIn',
-                      onPressed: () async {
-                        final GoogleMapController controller = await _controller.future;
-                        controller.animateCamera(CameraUpdate.zoomIn());
-                      },
-                      child: const Icon(Icons.add),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: FloatingActionButton(
-                      heroTag: 'zoomOut',
-                      onPressed: () async {
-                        final GoogleMapController controller = await _controller.future;
-                        controller.animateCamera(CameraUpdate.zoomOut());
-                      },
-                      child: const Icon(Icons.remove),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: FloatingActionButton(
-                      heroTag: 'myLocation',
-                      onPressed: _goToMyLocation,
-                      child: const Icon(Icons.my_location),
-                    ),
-                  ),
-                ],
-              ),
+            bottom: 300, // Adjusted to be above the sheet
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                FloatingActionButton(
+                  heroTag: 'zoomIn',
+                  mini: true,
+                  backgroundColor: Colors.white,
+                  onPressed: () async {
+                    final GoogleMapController controller = await _controller.future;
+                    controller.animateCamera(CameraUpdate.zoomIn());
+                  },
+                  child: const Icon(Icons.add, color: Colors.black),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton(
+                  heroTag: 'zoomOut',
+                  mini: true,
+                  backgroundColor: Colors.white,
+                  onPressed: () async {
+                    final GoogleMapController controller = await _controller.future;
+                    controller.animateCamera(CameraUpdate.zoomOut());
+                  },
+                  child: const Icon(Icons.remove, color: Colors.black),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton(
+                  heroTag: 'myLocation',
+                  mini: true,
+                  backgroundColor: Colors.white,
+                  onPressed: _goToMyLocation,
+                  child: const Icon(Icons.my_location, color: Colors.black),
+                ),
+              ],
             ),
           ),
           if (_isPlaceDetailsVisible)
             DraggableScrollableSheet(
-              initialChildSize: 0.4,
-              minChildSize: 0.2,
-              maxChildSize: 0.8,
+              initialChildSize: 0.5,
+              minChildSize: 0.3,
+              maxChildSize: 0.95,
               builder: (BuildContext context, ScrollController scrollController) {
                 return Container(
                   decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
-                      boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black.withOpacity(0.25))]
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      boxShadow: [BoxShadow(blurRadius: 15, color: Colors.black.withOpacity(0.2))]
                   ),
-                  child: _buildPlaceDetailsSheet(scrollController),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    child: _buildPlaceDetailsSheet(scrollController),
+                  ),
                 );
               },
             ),
@@ -376,74 +352,245 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildPlaceDetailsSheet(ScrollController scrollController) {
     if (_selectedPlace == null) return const SizedBox.shrink();
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text(_selectedPlace!.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: _isLoadingRooms
-              ? const Center(child: CircularProgressIndicator())
-              : _roomsForSelectedPlace.isEmpty
-                  ? const Center(child: Text('No rooms available.'))
-                  : ListView.builder(
-                        controller: scrollController,
-                        itemCount: _roomsForSelectedPlace.length,
-                        itemBuilder: (context, index) => _buildRoomCard(_roomsForSelectedPlace[index]),
+    return CustomScrollView(
+      controller: scrollController,
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedPlace!.name,
+                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                      ),
                     ),
+                    const SizedBox(width: 12),
+                    if (_selectedPlace!.imageUrl != null && _selectedPlace!.imageUrl!.isNotEmpty)
+                       ClipOval(
+                         child: Image.network(
+                           _selectedPlace!.imageUrl!,
+                           height: 40,
+                           width: 40,
+                           fit: BoxFit.cover,
+                           errorBuilder: (context, error, stackTrace) =>
+                               Container(height: 40, width: 40, color: Colors.grey[200], child: const Icon(Icons.image_not_supported, size: 20, color: Colors.grey)),
+                         ),
+                       )
+                    else
+                       Container(
+                         height: 40,
+                         width: 40,
+                         decoration: BoxDecoration(
+                           color: Colors.grey[100],
+                           shape: BoxShape.circle,
+                         ),
+                         child: const Center(child: Icon(Icons.hotel, size: 20, color: Colors.blueGrey)),
+                       ),
+                  ],
+                ),
+              ),
+              const Divider(indent: 20, endIndent: 20, height: 24),
+            ],
+          ),
         ),
+        if (_isLoadingRooms)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_roomsForSelectedPlace.isEmpty)
+           const SliverFillRemaining(
+             hasScrollBody: false,
+             child: Center(
+               child: Column(
+                 mainAxisAlignment: MainAxisAlignment.center,
+                 children: [
+                   Icon(Icons.meeting_room_outlined, size: 64, color: Colors.grey),
+                   SizedBox(height: 16),
+                   Text('No rooms available', style: TextStyle(color: Colors.grey, fontSize: 18)),
+                 ],
+               ),
+             ),
+           )
+        else
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _buildRoomCard(_roomsForSelectedPlace[index]),
+              childCount: _roomsForSelectedPlace.length,
+            ),
+          ),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
       ],
     );
   }
 
   Widget _buildRoomCard(Room room) {
-      return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-          child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                      if (room.imageUrl != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(room.imageUrl!, height: 150, width: double.infinity, fit: BoxFit.cover),
-                          ),
-                      Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                  Text(room.roomNumber ?? 'Room', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 4),
-                                  Text(room.description ?? '', style: const TextStyle(color: Colors.grey)),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('${room.price.toStringAsFixed(0)} UZS / night', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                                      ElevatedButton(
-                                          onPressed: room.isAvailable ? () {
-                                              Navigator.push(context, MaterialPageRoute(builder: (context) => 
-                                                CreateOrderScreen(
-                                                  masterId: _selectedPlace!.id,
-                                                  roomId: room.id,
-                                                )));
-                                          } : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: room.isAvailable ? Colors.blue : Colors.grey,
-                                          ),
-                                          child: Text(room.isAvailable ? 'Book Now' : 'Occupied'),
-                                      )
-                                    ],
-                                  )
-                              ],
-                          ),
-                      )
-                  ],
+      return Container(
+          margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
+            ],
+          ),
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                        child: room.imageUrl != null && room.imageUrl!.isNotEmpty
+                            ? Image.network(
+                                room.imageUrl!, 
+                                height: 200, 
+                                width: double.infinity, 
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  height: 200,
+                                  width: double.infinity,
+                                  color: Colors.grey[100],
+                                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                                ),
+                              )
+                            : Container(
+                                height: 200,
+                                width: double.infinity,
+                                color: Colors.grey[100],
+                                child: Icon(Icons.hotel, size: 50, color: Colors.grey[300]),
+                              ),
+                      ),
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: room.isAvailable ? Colors.green.withOpacity(0.9) : Colors.red.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            room.isAvailable ? 'Available' : 'Occupied',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.meeting_room, size: 24, color: Colors.black87),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        room.roomNumber ?? 'Room',
+                                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.people_outline, size: 20, color: Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '${room.capacity}',
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (room.description != null && room.description!.isNotEmpty)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.info_outline, size: 18, color: Colors.grey),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        room.description!,
+                                        style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.5),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Price per night', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${NumberFormat("#,###").format(room.price).replaceAll(",", " ")} UZS', 
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF4A80F0)),
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  ElevatedButton(
+                                      onPressed: room.isAvailable ? () {
+                                          Navigator.push(context, MaterialPageRoute(builder: (context) => 
+                                            CreateOrderScreen(
+                                              masterId: _selectedPlace!.id,
+                                              roomId: room.id,
+                                            )));
+                                      } : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF4A80F0),
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        disabledBackgroundColor: Colors.grey[200],
+                                        disabledForegroundColor: Colors.grey[400],
+                                      ),
+                                      child: const Text('Book Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                  )
+                                ],
+                              )
+                          ],
+                      ),
+                  )
+              ],
           ),
       );
   }
