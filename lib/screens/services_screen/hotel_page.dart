@@ -116,14 +116,16 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                     padding: const EdgeInsets.all(16.0),
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                        Text(
+                          room.roomNumber ?? 'No Number',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: Colors.black,
                           ),
-                          child: const Icon(Icons.meeting_room_outlined, color: Colors.blue, size: 24),
                         ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.meeting_room_outlined, color: Colors.blue, size: 32),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -131,32 +133,20 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Text(
-                                    room.roomNumber ?? 'No Number',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
                                   if (room.capacity != null && room.capacity!.isNotEmpty) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.people_outline, size: 14, color: Colors.grey.shade600),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            room.capacity!,
-                                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.people_outline, size: 20, color: Colors.blue, fontWeight: FontWeight.bold,),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          room.capacity!,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: Colors.black87
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ],
@@ -166,7 +156,7 @@ class _ManageRoomsScreenState extends State<ManageRoomsScreen> {
                                 '${NumberFormat("#,###").format(room.price).replaceAll(",", " ")} UZS',
                                 style: TextStyle(
                                   color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],

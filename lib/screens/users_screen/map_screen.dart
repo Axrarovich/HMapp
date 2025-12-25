@@ -524,11 +524,11 @@ class _MapScreenState extends State<MapScreen> {
                                   ),
                                   Row(
                                     children: [
-                                      const Icon(Icons.people_outline, size: 20, color: Colors.grey),
-                                      const SizedBox(width: 4),
+                                      const Icon(Icons.people_outline, size: 24, color: Colors.black87),
+                                      const SizedBox(width: 8),
                                       Text(
                                         '${room.capacity}',
-                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey),
+                                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
                                       ),
                                     ],
                                   ),
@@ -539,12 +539,12 @@ class _MapScreenState extends State<MapScreen> {
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.info_outline, size: 18, color: Colors.grey),
-                                    const SizedBox(width: 6),
+                                    const Icon(Icons.info_outline, size: 17, color: Colors.black87),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         room.description!,
-                                        style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.5),
+                                        style: TextStyle(color: Colors.black87, fontSize: 15, height: 1.5),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -557,7 +557,7 @@ class _MapScreenState extends State<MapScreen> {
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('Price per night', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                                      Text('Price per night', style: TextStyle(color: Colors.black87, fontSize: 12)),
                                       const SizedBox(height: 4),
                                       Text(
                                         '${NumberFormat("#,###").format(room.price).replaceAll(",", " ")} UZS', 

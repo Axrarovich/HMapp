@@ -93,7 +93,9 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        backgroundColor: Colors.grey[50],
         automaticallyImplyLeading: false,
         title: const Text(
           'Dashboard',
