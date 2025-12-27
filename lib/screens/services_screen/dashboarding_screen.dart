@@ -126,9 +126,9 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
           return TabBarView(
             controller: _tabController,
             children: [
-              _buildOrderList(allOrders, null), // All
-              _buildOrderList(allOrders, ['accepted', 'in_progress', 'completed']), // Approved (Active/Completed)
-              _buildOrderList(allOrders, ['cancelled']), // Cancelled
+              _buildOrderList(allOrders, ['pending', 'accepted', 'in_progress']), // All: New and Unfinished
+              _buildOrderList(allOrders, ['completed']), // Approved: Finished
+              _buildOrderList(allOrders, ['cancelled']), // Cancelled: Rejected
             ],
           );
         },
@@ -145,7 +145,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
       String statusText = "orders";
       if (statuses != null) {
         if (statuses.contains('cancelled') && statuses.length == 1) statusText = "cancelled orders";
-        else if (statuses.length > 1) statusText = "approved orders";
+        else if (statuses.contains('completed') && statuses.length == 1) statusText = "completed orders";
       }
       return Center(child: Text("There are no $statusText."));
     }
@@ -203,19 +203,14 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
         );
       case 'accepted':
         return Row(
-           mainAxisAlignment: MainAxisAlignment.end,
-           children: [
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
             ElevatedButton(
-              onPressed: () => _updateOrderStatus(order, 'in_progress'),
-              child: const Text('Start Work'),
+              onPressed: () => _updateOrderStatus(order, 'completed'),
+              child: const Text('Finish'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             ),
-             const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: () => _updateOrderStatus(order, 'cancelled'),
-              child: const Text('Cancel'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            ),
-           ]
+          ],
         );
       case 'in_progress':
          return Row(

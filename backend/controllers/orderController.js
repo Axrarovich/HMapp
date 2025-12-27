@@ -18,8 +18,9 @@ const createOrder = async (req, res) => {
       [user_id, master_id, room_id, description, 'pending', booking_date, phone_1, phone_2] // Status is pending until master accepts
     );
 
-    // Mark the room as unavailable
-    await pool.query('UPDATE rooms SET is_available = false WHERE id = ?', [room_id]);
+    // Note: We do NOT mark the room as unavailable immediately anymore.
+    // It remains available until the master accepts the order.
+    // await pool.query('UPDATE rooms SET is_available = false WHERE id = ?', [room_id]);
 
     const newOrder = { id: result.insertId, user_id, master_id, room_id, description, status: 'pending', booking_date, phone_1, phone_2 };
     res.status(201).json(newOrder);
@@ -87,9 +88,25 @@ const updateOrderStatus = async (req, res) => {
 
     await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, order_id]);
 
-    // If order is cancelled by master or user, make the room available again
-    if ((status === 'cancelled' || status === 'completed') && order.room_id) {
+    // Logic for updating room availability based on order status
+
+    // If status is accepted, room becomes occupied
+    if (status === 'accepted' && order.room_id) {
+         await pool.query('UPDATE rooms SET is_available = false WHERE id = ?', [order.room_id]);
+    }
+
+    // If order is completed (Finished), room becomes available again
+    if (status === 'completed' && order.room_id) {
         await pool.query('UPDATE rooms SET is_available = true WHERE id = ?', [order.room_id]);
+    }
+
+    // If order is cancelled
+    if (status === 'cancelled' && order.room_id) {
+        // Only make it available if it was previously accepted or in progress (meaning it was occupied)
+        // If it was 'pending', it was never occupied, so we don't need to do anything (it's already available)
+        if (order.status === 'accepted' || order.status === 'in_progress') {
+            await pool.query('UPDATE rooms SET is_available = true WHERE id = ?', [order.room_id]);
+        }
     }
 
     res.json({ ...order, status });

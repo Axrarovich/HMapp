@@ -73,7 +73,9 @@ class _CreateReviewScreenState extends State<CreateReviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Leave a Review'),
+        title: const Text('Leave a Review',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -114,7 +116,7 @@ class _CreateReviewScreenState extends State<CreateReviewScreen> {
               controller: _commentController,
               maxLines: 4,
               decoration: const InputDecoration(
-                hintText: 'Share your experience...',
+                hintText: 'Feedback and inquiries...',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -128,7 +130,7 @@ class _CreateReviewScreenState extends State<CreateReviewScreen> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
-                      child: const Text('Submit Review'),
+                      child: const Text('Submit'),
                     ),
             ),
           ],
