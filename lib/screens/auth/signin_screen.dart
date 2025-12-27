@@ -38,8 +38,12 @@ class _SignInScreenState extends State<SignInScreen> {
           _passwordController.text,
         );
 
-        // Navigate based on role
         if (mounted) {
+          if (result['role'] != 'user') {
+             await _authService.logout();
+             throw Exception('You are not a user. Please use the services login.');
+          }
+
           // For now, navigate to EmptyScreen for all roles on successful login
            Navigator.pushReplacement(
             context,

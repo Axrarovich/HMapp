@@ -583,7 +583,7 @@ class _MapScreenState extends State<MapScreen> {
                                         disabledBackgroundColor: Colors.grey[200],
                                         disabledForegroundColor: Colors.grey[400],
                                       ),
-                                      child: const Text('Book Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      child: const Text('Enter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   )
                                 ],
                               )

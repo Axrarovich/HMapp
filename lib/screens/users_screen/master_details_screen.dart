@@ -1,23 +1,7 @@
+import 'package:comply/screens/users_screen/create_order_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:comply/services/review_service.dart';
 import 'package:flutter/material.dart';
-
-// Placeholder for CreateOrderScreen
-class CreateOrderScreen extends StatelessWidget {
-  final int masterId;
-  const CreateOrderScreen({Key? key, required this.masterId}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create Order')),
-      body: Center(
-        child: Text('Order creation form for master #$masterId'),
-      ),
-    );
-  }
-}
-
 
 class MasterDetailsScreen extends StatefulWidget {
   final int masterId;
@@ -186,7 +170,10 @@ class _MasterDetailsScreenState extends State<MasterDetailsScreen> {
                     onPressed: isAvailable ? () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => CreateOrderScreen(masterId: widget.masterId)),
+                        MaterialPageRoute(builder: (context) => CreateOrderScreen(
+                            masterId: widget.masterId,
+                            roomId: 1, // TODO: Replace with actual room ID if available or needed logic
+                        )),
                       );
                     } : null, // Disable button if not available
                     style: ElevatedButton.styleFrom(

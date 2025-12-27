@@ -7,7 +7,14 @@ class OrderService {
   final String _ordersUrl = '$baseUrl/orders';
   final AuthService _authService = AuthService();
 
-  Future<void> createOrder({required int masterId, required int roomId, String? description}) async {
+  Future<void> createOrder({
+    required int masterId,
+    required int roomId,
+    String? description,
+    required String bookingDate,
+    required String phone1,
+    String? phone2,
+  }) async {
     final token = await _authService.getToken();
     final response = await http.post(
       Uri.parse(_ordersUrl),
@@ -19,6 +26,9 @@ class OrderService {
         'master_id': masterId,
         'room_id': roomId,
         'description': description,
+        'booking_date': bookingDate,
+        'phone_1': phone1,
+        'phone_2': phone2,
       }),
     );
 

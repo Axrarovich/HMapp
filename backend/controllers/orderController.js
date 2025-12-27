@@ -2,7 +2,7 @@ const pool = require('../config/db');
 
 // Create a new order
 const createOrder = async (req, res) => {
-  const { master_id, room_id, description } = req.body;
+  const { master_id, room_id, description, booking_date, phone_1, phone_2 } = req.body;
   const user_id = req.user.id;
 
   // Check if the room is available
@@ -14,14 +14,14 @@ const createOrder = async (req, res) => {
   try {
     // Create order
     const [result] = await pool.query(
-      'INSERT INTO orders (user_id, master_id, room_id, description, status) VALUES (?, ?, ?, ?, ?)',
-      [user_id, master_id, room_id, description, 'pending'] // Status is pending until master accepts
+      'INSERT INTO orders (user_id, master_id, room_id, description, status, booking_date, phone_1, phone_2) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [user_id, master_id, room_id, description, 'pending', booking_date, phone_1, phone_2] // Status is pending until master accepts
     );
 
     // Mark the room as unavailable
     await pool.query('UPDATE rooms SET is_available = false WHERE id = ?', [room_id]);
 
-    const newOrder = { id: result.insertId, user_id, master_id, room_id, description, status: 'pending' };
+    const newOrder = { id: result.insertId, user_id, master_id, room_id, description, status: 'pending', booking_date, phone_1, phone_2 };
     res.status(201).json(newOrder);
   } catch (error) {
     res.status(500).json({ message: error.message });

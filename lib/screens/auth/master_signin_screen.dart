@@ -40,6 +40,7 @@ class _MasterSignInScreenState extends State<MasterSignInScreen> {
 
         if (mounted) {
            if (result['role'] != 'master') {
+            await _authService.logout();
             throw Exception('You are not a master. Please use the user login.');
           }
 

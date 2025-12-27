@@ -34,9 +34,9 @@ class Order {
       userId: json['user_id'],
       masterId: json['master_id'],
       description: json['description'],
-      status: json['status'],
-      createdAt: json['created_at'],
-      updatedAt: json['updated_at'],
+      status: json['status'] ?? 'pending',
+      createdAt: json['created_at'] ?? '',
+      updatedAt: json['updated_at'] ?? '',
        // These might not be in the order object directly, handle nulls
       userFirstName: json['user_first_name'],
       userLastName: json['user_last_name'],

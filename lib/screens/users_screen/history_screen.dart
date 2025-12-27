@@ -25,12 +25,12 @@ class UserOrder {
   factory UserOrder.fromJson(Map<String, dynamic> json) {
     return UserOrder(
       id: json['id'],
-      status: json['status'],
-      createdAt: json['created_at'],
+      status: json['status'] ?? 'pending',
+      createdAt: json['created_at'] ?? '',
       description: json['description'],
       masterFirstName: json['master_first_name'] ?? 'Master',
       masterLastName: json['master_last_name'] ?? '',
-      masterId: json['master_id'],
+      masterId: json['master_id'] ?? 0,
     );
   }
 }
@@ -75,6 +75,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
  String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return 'N/A';
     try {
       final dateTime = DateTime.parse(dateStr).toLocal();
       return DateFormat.yMMMd().add_jm().format(dateTime);
@@ -110,7 +111,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             );
           }
 
-          final orders = snapshot.data!;
+          // Filter orders to show only Approved (accepted, in_progress, completed) and Cancelled
+          final orders = snapshot.data!.where((order) {
+            return ['accepted', 'in_progress', 'completed', 'cancelled'].contains(order.status);
+          }).toList();
+
+          if (orders.isEmpty) {
+             return const Center(
+              child: Text(
+                'You have no orders in history.',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            );
+          }
 
           return RefreshIndicator(
             onRefresh: () async => _fetchOrders(),
@@ -158,7 +171,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${order.description}',
+                          '${order.description ?? 'No description'}',
                           style: const TextStyle(fontSize: 14, color: Colors.black54),
                         ),
                         const SizedBox(height: 12),
