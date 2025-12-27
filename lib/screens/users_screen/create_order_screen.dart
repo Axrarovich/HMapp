@@ -1,6 +1,8 @@
+import 'package:comply/services/master_service.dart';
 import 'package:comply/services/order_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CreateOrderScreen extends StatefulWidget {
   final int masterId;
@@ -21,17 +23,60 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _descriptionController = TextEditingController();
   final _phone1Controller = TextEditingController();
   final _phone2Controller = TextEditingController();
+  final _dateController = TextEditingController();
   final _orderService = OrderService();
-  bool _isSending = false;
+  final _masterService = MasterService();
   
-  final DateTime _bookingDate = DateTime.now();
+  bool _isSending = false;
+  Map<String, dynamic>? _masterData;
+  
+  DateTime _bookingDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _dateController.text = DateFormat('dd.MM.yyyy').format(_bookingDate);
+    _fetchMasterData();
+  }
 
   @override
   void dispose() {
     _descriptionController.dispose();
     _phone1Controller.dispose();
     _phone2Controller.dispose();
+    _dateController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchMasterData() async {
+    try {
+      final data = await _masterService.getMasterById(widget.masterId);
+      if (mounted) {
+        setState(() {
+          _masterData = data;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching master data: $e');
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime now = DateTime.now();
+    final DateTime firstDate = DateTime(now.year, now.month, now.day);
+    
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _bookingDate,
+      firstDate: firstDate,
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _bookingDate) {
+      setState(() {
+        _bookingDate = picked;
+        _dateController.text = DateFormat('dd.MM.yyyy').format(picked);
+      });
+    }
   }
 
   Future<void> _submitOrder() async {
@@ -73,6 +118,126 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber.replaceAll(RegExp(r'[^\d+]'), ''),
+    );
+    try {
+      if (!await launchUrl(launchUri)) {
+        throw Exception('Could not launch $launchUri');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not call $phoneNumber')),
+        );
+      }
+    }
+  }
+
+  Future<void> _openMap() async {
+    if (_masterData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Master info not loaded yet')),
+      );
+      return;
+    }
+
+    var address = _masterData!['address'];
+    
+    if (address == null || address.toString().isEmpty) {
+       address = _masterData!['location'];
+    }
+    
+    // Check for latitude and longitude fields
+    if (address == null || address.toString().isEmpty) {
+      final lat = _masterData!['latitude'];
+      final lng = _masterData!['longitude'];
+      if (lat != null && lng != null) {
+        address = '$lat,$lng';
+      }
+    }
+
+    if (address == null || address.toString().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location not available for this master')),
+      );
+      return;
+    }
+
+    final Uri url = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': address.toString(),
+    });
+
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open maps: $e')),
+        );
+      }
+    }
+  }
+
+  void _showConnectionDialog() {
+    if (_masterData == null) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Loading contact info...')),
+      );
+      return;
+    }
+
+    final phone1 = _masterData!['phone_number_1'];
+    final phone2 = _masterData!['phone_number_2'];
+    final hotelName = _masterData!['first_name'] ?? 'Contact Hotel';
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Center(child: Text(hotelName, style: const TextStyle(fontWeight: FontWeight.bold))),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+               if (phone1 != null && phone1.toString().isNotEmpty)
+                 ListTile(
+                   title: Text(phone1.toString()),
+                   trailing: IconButton(
+                     icon: const Icon(Icons.call, color: Colors.green),
+                     onPressed: () => _makePhoneCall(phone1.toString()),
+                   ),
+                 ),
+               if (phone2 != null && phone2.toString().isNotEmpty)
+                 ListTile(
+                   title: Text(phone2.toString()),
+                   trailing: IconButton(
+                     icon: const Icon(Icons.call, color: Colors.green),
+                     onPressed: () => _makePhoneCall(phone2.toString()),
+                   ),
+                 ),
+               if ((phone1 == null || phone1.toString().isEmpty) && (phone2 == null || phone2.toString().isEmpty))
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text("No phone numbers available."),
+                  ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,42 +245,44 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         title: const Text('Registration',
             style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                     // Date Field
-                     TextFormField(
-                       initialValue: DateFormat('dd.MM.yyyy').format(_bookingDate),
-                       readOnly: true,
-                       decoration: const InputDecoration(
-                         labelText: 'Date',
-                         border: OutlineInputBorder(),
-                         suffixIcon: Icon(Icons.calendar_today),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                       // Date Field
+                       TextFormField(
+                         controller: _dateController,
+                         readOnly: true,
+                         onTap: () => _selectDate(context),
+                         decoration: const InputDecoration(
+                           labelText: 'Date',
+                           border: OutlineInputBorder(),
+                           suffixIcon: Icon(Icons.calendar_today),
+                         ),
                        ),
-                     ),
-                     const SizedBox(height: 16),
-                     
-                     // Phone 1
-                     TextFormField(
-                       controller: _phone1Controller,
-                       keyboardType: TextInputType.phone,
-                       decoration: const InputDecoration(
-                         labelText: 'Phone number 1 (Required)',
-                         border: OutlineInputBorder(),
-                         prefixText: '+998 ',
-                       ),
-                       validator: (value) {
-                         if (value == null || value.isEmpty) {
-                           return 'Please enter a phone number';
-                         }
-                         return null;
+                       const SizedBox(height: 16),
+                       
+                       // Phone 1
+                       TextFormField(
+                         controller: _phone1Controller,
+                         keyboardType: TextInputType.phone,
+                         decoration: const InputDecoration(
+                           labelText: 'Phone number 1 (Required)',
+                           border: OutlineInputBorder(),
+                           prefixText: '+998 ',
+                         ),
+                         validator: (value) {
+                           if (value == null || value.isEmpty) {
+                             return 'Please enter a phone number';
+                           }
+                           return null;
                        },
                      ),
                      const SizedBox(height: 16),
@@ -153,9 +320,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () {
-                              // TODO: Implement contact functionality
-                            },
+                            onPressed: _showConnectionDialog,
                             icon: const Icon(Icons.phone),
                             label: const Text("Connection"),
                             style: OutlinedButton.styleFrom(
@@ -166,9 +331,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () {
-                               // TODO: Implement location functionality
-                            },
+                            onPressed: _openMap,
                             icon: const Icon(Icons.location_on),
                             label: const Text("Location"),
                             style: OutlinedButton.styleFrom(
@@ -201,6 +364,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
