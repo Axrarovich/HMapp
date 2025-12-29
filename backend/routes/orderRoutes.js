@@ -18,4 +18,9 @@ router.get('/', protect, orderController.getOrders);
 // @access  Private
 router.put('/:id', protect, orderController.updateOrderStatus);
 
+// @route   DELETE api/orders/:id
+// @desc    Delete an order (cancel request)
+// @access  Private
+router.delete('/:id', protect, orderController.deleteOrder);
+
 module.exports = router;

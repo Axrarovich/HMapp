@@ -49,10 +49,14 @@ const getOrders = async (req, res) => {
       `, [masterId]);
     } else { // 'user' role
       [orders] = await pool.query(`
-        SELECT o.*, u.first_name as master_first_name, u.last_name as master_last_name, r.room_number
+        SELECT o.*, 
+               m_u.first_name as master_first_name, m_u.last_name as master_last_name, 
+               u.first_name as user_first_name, u.last_name as user_last_name,
+               r.room_number
         FROM orders o
         JOIN masters m ON o.master_id = m.id
-        JOIN users u ON m.user_id = u.id
+        JOIN users m_u ON m.user_id = m_u.id
+        JOIN users u ON o.user_id = u.id
         LEFT JOIN rooms r ON o.room_id = r.id
         WHERE o.user_id = ?
         ORDER BY o.created_at DESC
@@ -115,4 +119,34 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, getOrders, updateOrderStatus };
+// Delete order
+const deleteOrder = async (req, res) => {
+  const order_id = req.params.id;
+
+  try {
+    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ?', [order_id]);
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    const order = orders[0];
+
+    // Authorization checks
+    // Allow user to delete their own order
+    if (order.user_id !== req.user.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this order' });
+    }
+
+    // Only allow deleting pending orders
+    if (order.status !== 'pending') {
+        return res.status(400).json({ message: 'Only pending orders can be deleted' });
+    }
+
+    await pool.query('DELETE FROM orders WHERE id = ?', [order_id]);
+
+    res.json({ message: 'Order deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { createOrder, getOrders, updateOrderStatus, deleteOrder };

@@ -73,4 +73,19 @@ class OrderService {
       throw Exception('Failed to update order status: ${response.body}');
     }
   }
+
+  Future<void> deleteOrder(int orderId) async {
+    final token = await _authService.getToken();
+    final response = await http.delete(
+      Uri.parse('$_ordersUrl/$orderId'),
+      headers: <String, String>{
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode != 200) {
+      final errorBody = jsonDecode(response.body);
+      throw Exception('Failed to delete order: ${errorBody['message']}');
+    }
+  }
 }

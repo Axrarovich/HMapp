@@ -315,7 +315,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Order ID: ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Order: ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                        // You might want to fetch user details to display name
                       Text('User ID: ${order.userId}'),

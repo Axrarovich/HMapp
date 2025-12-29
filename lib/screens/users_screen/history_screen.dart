@@ -12,6 +12,10 @@ class UserOrder {
   final String masterFirstName;
   final String masterLastName;
   final int masterId;
+  final String userFirstName;
+  final String userLastName;
+  final String? phone1;
+  final String? phone2;
 
   UserOrder({
     required this.id,
@@ -20,7 +24,11 @@ class UserOrder {
     this.description,
     required this.masterFirstName,
     required this.masterLastName,
-    required this.masterId
+    required this.masterId,
+    required this.userFirstName,
+    required this.userLastName,
+    this.phone1,
+    this.phone2,
   });
 
   factory UserOrder.fromJson(Map<String, dynamic> json) {
@@ -32,6 +40,10 @@ class UserOrder {
       masterFirstName: json['master_first_name'] ?? 'Master',
       masterLastName: json['master_last_name'] ?? '',
       masterId: json['master_id'] ?? 0,
+      userFirstName: json['user_first_name'] ?? '',
+      userLastName: json['user_last_name'] ?? '',
+      phone1: json['phone_1'],
+      phone2: json['phone_2'],
     );
   }
 }
@@ -175,6 +187,51 @@ class _HistoryScreenState extends State<HistoryScreen> {
     await _saveHiddenOrders();
   }
 
+  Future<void> _cancelOrder(int orderId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Request'),
+        content: const Text('Do you want to delete this request?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      try {
+        await _orderService.deleteOrder(orderId);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Request deleted successfully')),
+          );
+          _fetchOrders();
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete request: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'completed':
@@ -295,7 +352,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                        Text(
-                                        'Order #${order.id}',
+                                        'Order №${order.id}',
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                       ),
                                       if (!_isSelectionMode)
@@ -320,8 +377,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ),
                                   const Divider(height: 20),
                                   Text(
-                                    'Master: ${order.masterFirstName} ${order.masterLastName}',
+                                    '${order.masterFirstName} ${order.masterLastName}',
                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${order.userLastName} ${order.userFirstName}',
+                                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      if (order.phone1 != null && order.phone1!.isNotEmpty)
+                                        Text(order.phone1!, style: const TextStyle(fontSize: 14)),
+                                      if (order.phone1 != null && order.phone1!.isNotEmpty && order.phone2 != null && order.phone2!.isNotEmpty)
+                                        const SizedBox(width: 10),
+                                      if (order.phone2 != null && order.phone2!.isNotEmpty)
+                                        Text(order.phone2!, style: const TextStyle(fontSize: 14)),
+                                    ],
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
@@ -361,26 +434,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ],
                               ),
                             ),
-                            if (_isSelectionMode && isSelectionAllowed)
+                            if (_isSelectionMode)
                               Positioned(
                                 top: 8,
                                 right: 8,
-                                child: InkWell(
-                                  onTap: () => _toggleSelection(order.id),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: isSelected ? Colors.blue : Colors.transparent,
-                                      border: Border.all(color: Colors.grey),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4.0),
-                                      child: isSelected 
-                                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                                        : const Icon(null, size: 16), // Empty space
-                                    ),
-                                  ),
-                                ),
+                                child: order.status == 'pending'
+                                    ? InkWell(
+                                        onTap: () => _cancelOrder(order.id),
+                                        child: Container(
+                                          decoration: const BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.red,
+                                          ),
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                        ),
+                                      )
+                                    : isSelectionAllowed
+                                        ? InkWell(
+                                            onTap: () => _toggleSelection(order.id),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: isSelected ? Colors.blue : Colors.transparent,
+                                                border: Border.all(color: Colors.grey),
+                                              ),
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(4.0),
+                                                child: isSelected
+                                                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                                                    : const Icon(null, size: 16),
+                                              ),
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
                               ),
                           ],
                         ),
