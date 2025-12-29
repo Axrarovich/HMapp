@@ -70,7 +70,14 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
     super.initState();
     _tabController = TabController(length: 3, vsync: this); // All, Approved, Cancelled
     _tabController.addListener(() {
-      if (mounted) setState(() {});
+      if (mounted) {
+        // Automatically exit selection mode if switching to All tab
+        if (_tabController.index == 0 && _isSelectionMode) {
+           _isSelectionMode = false;
+           _selectedOrderIds.clear();
+        }
+        setState(() {});
+      }
     });
     _loadHiddenOrders();
     _fetchOrders();
@@ -215,7 +222,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
       appBar: AppBar(
         backgroundColor: Colors.grey[50],
         automaticallyImplyLeading: false,
-        leading: _isSelectionMode ? IconButton(
+        leading: (_isSelectionMode && _tabController.index != 0) ? IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
           onPressed: () {
             setState(() {
@@ -228,7 +235,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
           'Dashboard',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
-        actions: [
+        actions: _tabController.index == 0 ? [] : [
           if (_isSelectionMode)
             TextButton(
               onPressed: _selectAll,

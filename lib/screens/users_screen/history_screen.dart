@@ -142,13 +142,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
+  bool _canSelect(UserOrder order) {
+    return order.status != 'pending' && order.status != 'accepted';
+  }
+
   void _selectAll() {
     final visibleOrders = _getVisibleOrders();
+    final selectableOrders = visibleOrders.where(_canSelect).toList();
+    
     setState(() {
-      if (_selectedOrderIds.length == visibleOrders.length) {
+      if (_selectedOrderIds.length == selectableOrders.length && selectableOrders.isNotEmpty) {
         _selectedOrderIds.clear(); 
       } else {
-        _selectedOrderIds = visibleOrders.map((o) => o.id).toSet();
+        _selectedOrderIds = selectableOrders.map((o) => o.id).toSet();
       }
     });
   }
@@ -198,7 +204,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // Filter orders to show only Approved (accepted, in_progress, completed) and Cancelled
     // And exclude hidden ones
     return _orders.where((order) {
-      final isStatusRelevant = ['accepted', 'in_progress', 'completed', 'cancelled'].contains(order.status);
+      final isStatusRelevant = ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'].contains(order.status);
       final isNotHidden = !_hiddenOrderIds.contains(order.id.toString());
       return isStatusRelevant && isNotHidden;
     }).toList();
@@ -270,9 +276,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   itemBuilder: (context, index) {
                     final order = visibleOrders[index];
                     final isSelected = _selectedOrderIds.contains(order.id);
+                    final isSelectionAllowed = _canSelect(order);
 
                     return GestureDetector(
-                      onTap: _isSelectionMode ? () => _toggleSelection(order.id) : null,
+                      onTap: (_isSelectionMode && isSelectionAllowed) ? () => _toggleSelection(order.id) : null,
                       child: Card(
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         elevation: 2,
@@ -354,7 +361,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ],
                               ),
                             ),
-                            if (_isSelectionMode)
+                            if (_isSelectionMode && isSelectionAllowed)
                               Positioned(
                                 top: 8,
                                 right: 8,
