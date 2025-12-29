@@ -1,5 +1,6 @@
 import 'package:comply/services/order_service.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Model for the order data from the backend
 class Order {
@@ -55,19 +56,81 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
   late TabController _tabController;
   final OrderService _orderService = OrderService();
 
-  Future<List<Order>>? _ordersFuture;
+  List<Order> _allOrders = [];
+  bool _isLoading = true;
+
+  // Selection and Deletion state
+  List<String> _hiddenOrderIds = [];
+  Set<int> _selectedOrderIds = {};
+  bool _isSelectionMode = false;
 
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this); // All, Approved, Cancelled
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _loadHiddenOrders();
     _fetchOrders();
+  }
+
+  Future<String> _getPrefsKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id');
+    if (userId != null) {
+      return 'hidden_dashboard_ids_$userId';
+    }
+    return 'hidden_dashboard_ids_general';
+  }
+
+  Future<void> _loadHiddenOrders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = await _getPrefsKey();
+      final loadedIds = prefs.getStringList(key) ?? [];
+      
+      if (mounted) {
+        setState(() {
+          _hiddenOrderIds = loadedIds;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading hidden orders: $e');
+    }
+  }
+
+  Future<void> _saveHiddenOrders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = await _getPrefsKey();
+      await prefs.setStringList(key, _hiddenOrderIds);
+    } catch (e) {
+      debugPrint('Error saving hidden orders: $e');
+    }
   }
 
   void _fetchOrders() {
     setState(() {
-      _ordersFuture = _orderService.getOrders().then((data) => data.map((item) => Order.fromJson(item)).toList());
+      _isLoading = true;
+    });
+    _orderService.getOrders().then((data) {
+      if (mounted) {
+        setState(() {
+          _allOrders = data.map((item) => Order.fromJson(item)).toList();
+          _isLoading = false;
+        });
+      }
+    }).catchError((e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load orders: $e')),
+        );
+      }
     });
   }
 
@@ -90,6 +153,61 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
     }
   }
 
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selectedOrderIds.contains(id)) {
+        _selectedOrderIds.remove(id);
+      } else {
+        _selectedOrderIds.add(id);
+      }
+    });
+  }
+
+  List<Order> _getVisibleOrdersForCurrentTab() {
+    List<String>? statuses;
+    if (_tabController.index == 0) {
+      statuses = ['pending', 'accepted', 'in_progress'];
+    } else if (_tabController.index == 1) {
+      statuses = ['completed'];
+    } else if (_tabController.index == 2) {
+      statuses = ['cancelled'];
+    }
+
+    return _allOrders.where((order) {
+      bool statusMatch = statuses == null || statuses.contains(order.status);
+      bool notHidden = !_hiddenOrderIds.contains(order.id.toString());
+      return statusMatch && notHidden;
+    }).toList();
+  }
+
+  void _selectAll() {
+    final visible = _getVisibleOrdersForCurrentTab();
+    setState(() {
+      bool allSelected = visible.isNotEmpty && visible.every((o) => _selectedOrderIds.contains(o.id));
+      
+      if (allSelected) {
+        for (var o in visible) _selectedOrderIds.remove(o.id);
+      } else {
+        for (var o in visible) _selectedOrderIds.add(o.id);
+      }
+    });
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_selectedOrderIds.isEmpty) return;
+    
+    final newHiddenIds = _selectedOrderIds.map((id) => id.toString()).toList();
+    final updatedHiddenList = {..._hiddenOrderIds, ...newHiddenIds}.toList();
+
+    setState(() {
+      _hiddenOrderIds = updatedHiddenList;
+      _selectedOrderIds.clear();
+      _isSelectionMode = false;
+    });
+    
+    await _saveHiddenOrders();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,10 +215,42 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
       appBar: AppBar(
         backgroundColor: Colors.grey[50],
         automaticallyImplyLeading: false,
+        leading: _isSelectionMode ? IconButton(
+          icon: const Icon(Icons.close, color: Colors.black),
+          onPressed: () {
+            setState(() {
+              _isSelectionMode = false;
+              _selectedOrderIds.clear();
+            });
+          },
+        ) : null,
         title: const Text(
           'Dashboard',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          if (_isSelectionMode)
+            TextButton(
+              onPressed: _selectAll,
+              child: const Text('All', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            ),
+          TextButton(
+            onPressed: () {
+              if (_isSelectionMode) {
+                _deleteSelected();
+              } else {
+                setState(() {
+                  _isSelectionMode = true;
+                });
+              }
+            },
+            child: Text(
+              _isSelectionMode ? 'Clear' : 'Clear', 
+              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
@@ -110,36 +260,27 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
           ],
         ),
       ),
-      body: FutureBuilder<List<Order>>(
-        future: _ordersFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No orders found.'));
-          }
-
-          final allOrders = snapshot.data!;
-
-          return TabBarView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : TabBarView(
             controller: _tabController,
             children: [
-              _buildOrderList(allOrders, ['pending', 'accepted', 'in_progress']), // All: New and Unfinished
-              _buildOrderList(allOrders, ['completed']), // Approved: Finished
-              _buildOrderList(allOrders, ['cancelled']), // Cancelled: Rejected
+              _buildOrderList(['pending', 'accepted', 'in_progress']), // All: New and Unfinished
+              _buildOrderList(['completed']), // Approved: Finished
+              _buildOrderList(['cancelled']), // Cancelled: Rejected
             ],
-          );
-        },
-      ),
+          ),
     );
   }
 
-  Widget _buildOrderList(List<Order> allOrders, List<String>? statuses) {
-    final filteredOrders = statuses == null 
-        ? allOrders 
-        : allOrders.where((order) => statuses.contains(order.status)).toList();
+  Widget _buildOrderList(List<String>? statuses) {
+    // Filter by status
+    final statusFilteredOrders = statuses == null 
+        ? _allOrders 
+        : _allOrders.where((order) => statuses.contains(order.status)).toList();
+
+    // Filter by hidden
+    final filteredOrders = statusFilteredOrders.where((order) => !_hiddenOrderIds.contains(order.id.toString())).toList();
 
     if (filteredOrders.isEmpty) {
       String statusText = "orders";
@@ -154,25 +295,54 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
       itemCount: filteredOrders.length,
       itemBuilder: (context, index) {
         final order = filteredOrders[index];
-        return Card(
-          margin: const EdgeInsets.all(8.0),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        final isSelected = _selectedOrderIds.contains(order.id);
+
+        return GestureDetector(
+          onTap: _isSelectionMode ? () => _toggleSelection(order.id) : null,
+          child: Card(
+            margin: const EdgeInsets.all(8.0),
+            child: Stack(
               children: [
-                Text('Order ID: ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                 // You might want to fetch user details to display name
-                Text('User ID: ${order.userId}'),
-                const SizedBox(height: 8),
-                Text('Description: ${order.description ?? 'N/A'}'),
-                const Divider(height: 32, thickness: 1),
-                Text('Status: ${order.status}'),
-                 const SizedBox(height: 8),
-                Text('Created at: ${order.createdAt}'),
-                const SizedBox(height: 16),
-                _buildActionButtons(order),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Order ID: ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                       // You might want to fetch user details to display name
+                      Text('User ID: ${order.userId}'),
+                      const SizedBox(height: 8),
+                      Text('Description: ${order.description ?? 'N/A'}'),
+                      const Divider(height: 32, thickness: 1),
+                      Text('Status: ${order.status}'),
+                       const SizedBox(height: 8),
+                      Text('Created at: ${order.createdAt}'),
+                      const SizedBox(height: 16),
+                      if (!_isSelectionMode) _buildActionButtons(order),
+                    ],
+                  ),
+                ),
+                if (_isSelectionMode)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected ? Colors.blue : Colors.transparent,
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: isSelected 
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : const Icon(null, size: 16), 
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

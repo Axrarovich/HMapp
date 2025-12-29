@@ -166,6 +166,13 @@ class AuthService {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    // Instead of clearing everything, only remove auth-related keys
+    // This preserves local settings like hidden history
+    await prefs.remove('token');
+    await prefs.remove('first_name');
+    await prefs.remove('last_name');
+    await prefs.remove('login');
+    await prefs.remove('role');
+    await prefs.remove('user_id');
   }
 }

@@ -4,20 +4,27 @@ import 'package:comply/screens/users_screen/settings_screen.dart';
 import 'package:flutter/material.dart';
 
 class EmptyScreen extends StatefulWidget {
-  const EmptyScreen({Key? key}) : super(key: key);
+  final int initialIndex;
+  const EmptyScreen({Key? key, this.initialIndex = 0}) : super(key: key);
 
   @override
   State<EmptyScreen> createState() => _EmptyScreenState();
 }
 
 class _EmptyScreenState extends State<EmptyScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   static const List<Widget> _widgetOptions = <Widget>[
     MapScreen(), 
     HistoryScreen(),
     SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
 
   void _onItemTapped(int index) {
     setState(() {

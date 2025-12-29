@@ -57,20 +57,56 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadHiddenOrders();
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    await _loadHiddenOrders();
     _fetchOrders();
   }
 
-  Future<void> _loadHiddenOrders() async {
+  Future<String> _getPrefsKey() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _hiddenOrderIds = prefs.getStringList('hidden_history_ids') ?? [];
-    });
+    // Try to get unique user identifier
+    final userId = prefs.getInt('user_id');
+    if (userId != null) {
+      return 'hidden_history_ids_$userId';
+    }
+    
+    // Fallback to login if user_id is missing
+    final login = prefs.getString('login');
+    if (login != null) {
+      return 'hidden_history_ids_$login';
+    }
+    
+    // Ultimate fallback (e.g. if something is wrong with auth data but user is on screen)
+    return 'hidden_history_ids_general';
+  }
+
+  Future<void> _loadHiddenOrders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = await _getPrefsKey();
+      final loadedIds = prefs.getStringList(key) ?? [];
+      
+      if (mounted) {
+        setState(() {
+          _hiddenOrderIds = loadedIds;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading hidden orders: $e');
+    }
   }
 
   Future<void> _saveHiddenOrders() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('hidden_history_ids', _hiddenOrderIds);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = await _getPrefsKey();
+      await prefs.setStringList(key, _hiddenOrderIds);
+    } catch (e) {
+      debugPrint('Error saving hidden orders: $e');
+    }
   }
 
   void _fetchOrders() {
@@ -110,23 +146,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final visibleOrders = _getVisibleOrders();
     setState(() {
       if (_selectedOrderIds.length == visibleOrders.length) {
-        // Optional: Deselect all if already all selected, but requirement says "All puts checks"
-        // so maybe just ensure all are selected.
-        // If user presses All again, usually it doesn't toggle off unless logic says so.
-        // I'll ensure all are selected.
+        _selectedOrderIds.clear(); 
+      } else {
+        _selectedOrderIds = visibleOrders.map((o) => o.id).toSet();
       }
-      _selectedOrderIds = visibleOrders.map((o) => o.id).toSet();
     });
   }
 
   Future<void> _deleteSelected() async {
     if (_selectedOrderIds.isEmpty) return;
     
+    final newHiddenIds = _selectedOrderIds.map((id) => id.toString()).toList();
+    // Use Set to ensure uniqueness
+    final updatedHiddenList = {..._hiddenOrderIds, ...newHiddenIds}.toList();
+
     setState(() {
-      _hiddenOrderIds.addAll(_selectedOrderIds.map((id) => id.toString()));
+      _hiddenOrderIds = updatedHiddenList;
       _selectedOrderIds.clear();
       _isSelectionMode = false;
     });
+    
     await _saveHiddenOrders();
   }
 
@@ -222,7 +261,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               )
             : RefreshIndicator(
-                onRefresh: () async => _fetchOrders(),
+                onRefresh: () async {
+                  await _loadHiddenOrders(); // Reload hidden orders on refresh too
+                  _fetchOrders();
+                },
                 child: ListView.builder(
                   itemCount: visibleOrders.length,
                   itemBuilder: (context, index) {
@@ -249,11 +291,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         'Order #${order.id}',
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                       ),
-                                      if (!_isSelectionMode) // Hide status badge if selection mode to avoid overlap? Or keep it?
-                                                             // User said "yuqori o'ng burchagiga galochka".
-                                                             // If I put checkbox at top right, it might overlap status.
-                                                             // I'll keep status but maybe move it or just let checkbox cover it/sit next to it.
-                                                             // To follow request strictly, checkmark field appears.
+                                      if (!_isSelectionMode)
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
@@ -270,7 +308,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           ),
                                         )
                                       else
-                                        const SizedBox(height: 24), // Placeholder to prevent jumping layout too much
+                                        const SizedBox(height: 24),
                                     ],
                                   ),
                                   const Divider(height: 20),

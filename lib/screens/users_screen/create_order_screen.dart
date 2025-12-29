@@ -1,3 +1,4 @@
+import 'package:comply/screens/users_screen/empty_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:comply/services/order_service.dart';
 import 'package:flutter/material.dart';
@@ -99,8 +100,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Order created successfully! You can track it in the History tab.')),
           );
-          int count = 0;
-          Navigator.of(context).popUntil((_) => count++ >= 2);
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const EmptyScreen(initialIndex: 1)),
+            (route) => false,
+          );
         }
       } catch (e) {
         if (mounted) {
