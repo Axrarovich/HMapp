@@ -2,6 +2,7 @@ import 'package:comply/screens/users_screen/empty_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:comply/services/order_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -92,8 +93,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           roomId: widget.roomId, 
           description: _descriptionController.text,
           bookingDate: DateFormat('yyyy-MM-dd').format(_bookingDate),
-          phone1: _phone1Controller.text,
-          phone2: _phone2Controller.text.isEmpty ? null : _phone2Controller.text,
+          phone1: '+998 ${_phone1Controller.text}',
+          phone2: _phone2Controller.text.isEmpty ? null : '+998 ${_phone2Controller.text}',
         );
 
         if (mounted) {
@@ -276,6 +277,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                        TextFormField(
                          controller: _phone1Controller,
                          keyboardType: TextInputType.phone,
+                         inputFormatters: [
+                           PhoneNumberFormatter(),
+                         ],
                          decoration: const InputDecoration(
                            labelText: 'Phone number 1 (Required)',
                            border: OutlineInputBorder(),
@@ -284,6 +288,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                          validator: (value) {
                            if (value == null || value.isEmpty) {
                              return 'Please enter a phone number';
+                           }
+                           final digits = value.replaceAll(RegExp(r'\D'), '');
+                           if (digits.length != 9) {
+                             return 'Please enter 9 digits';
                            }
                            return null;
                        },
@@ -294,11 +302,23 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
                      TextFormField(
                        controller: _phone2Controller,
                        keyboardType: TextInputType.phone,
+                       inputFormatters: [
+                         PhoneNumberFormatter(),
+                       ],
                        decoration: const InputDecoration(
                          labelText: 'Phone number 2 (Optional)',
                          border: OutlineInputBorder(),
                          prefixText: '+998 ',
                        ),
+                       validator: (value) {
+                         if (value != null && value.isNotEmpty) {
+                           final digits = value.replaceAll(RegExp(r'\D'), '');
+                           if (digits.length != 9) {
+                             return 'Please enter 9 digits';
+                           }
+                         }
+                         return null;
+                       },
                      ),
                      const SizedBox(height: 16),
 
@@ -369,6 +389,43 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         ],
         ),
       ),
+    );
+  }
+}
+
+class PhoneNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    
+    // Allow empty
+    if (newValue.text.isEmpty) {
+       return newValue;
+    }
+
+    // Only allow digits
+    String cleaned = newValue.text.replaceAll(RegExp(r'\D'), '');
+    
+    // Limit to 9 digits
+    if (cleaned.length > 9) {
+      cleaned = cleaned.substring(0, 9);
+    }
+
+    // Format: XX XXX XX XX
+    final buffer = StringBuffer();
+    for (int i = 0; i < cleaned.length; i++) {
+      if (i == 2 || i == 5 || i == 7) {
+        buffer.write(' ');
+      }
+      buffer.write(cleaned[i]);
+    }
+
+    final newText = buffer.toString();
+    
+    // Return with cursor at the end
+    return TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
     );
   }
 }

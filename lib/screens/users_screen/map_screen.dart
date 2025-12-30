@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:comply/config/constants.dart';
@@ -11,6 +12,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Helper function to resolve full image URL
 String? _resolveImageUrl(String? url) {
@@ -34,6 +36,8 @@ class Place {
   final double latitude;
   final double longitude;
   final String? imageUrl;
+  final String? phoneNumber1;
+  final String? phoneNumber2;
 
   Place({
     required this.id,
@@ -41,6 +45,8 @@ class Place {
     required this.latitude,
     required this.longitude,
     this.imageUrl,
+    this.phoneNumber1,
+    this.phoneNumber2,
   });
 
   factory Place.fromJson(Map<String, dynamic> json) {
@@ -50,6 +56,8 @@ class Place {
       latitude: double.tryParse(json['latitude'].toString()) ?? 0.0,
       longitude: double.tryParse(json['longitude'].toString()) ?? 0.0,
       imageUrl: _resolveImageUrl(json['image_url']),
+      phoneNumber1: json['phone_number_1'],
+      phoneNumber2: json['phone_number_2'],
     );
   }
 }
@@ -267,6 +275,104 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber.replaceAll(RegExp(r'\s+'), ''),
+    );
+    try {
+      if (await canLaunchUrl(launchUri)) {
+         await launchUrl(launchUri);
+      }
+    } catch (e) {
+       print('Could not launch phone call: $e');
+    }
+  }
+
+  Future<void> _openMap(double lat, double lng) async {
+    try {
+        final Uri googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
+        final Uri appleMapsUrl = Uri.parse("https://maps.apple.com/?daddr=$lat,$lng");
+        final Uri webUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+
+        if (Platform.isAndroid) {
+            if (await canLaunchUrl(googleMapsUrl)) {
+                await launchUrl(googleMapsUrl);
+            } else {
+                await launchUrl(webUrl);
+            }
+        } else if (Platform.isIOS) {
+            if (await canLaunchUrl(appleMapsUrl)) {
+                 await launchUrl(appleMapsUrl);
+            } else {
+                 await launchUrl(webUrl);
+            }
+        } else {
+            await launchUrl(webUrl);
+        }
+    } catch (e) {
+        print('Could not launch map: $e');
+    }
+  }
+
+  void _showConnectionDialog(BuildContext context) {
+    if (_selectedPlace == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: const Color(0xFFEBF1F6), // Light blueish grey background
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _selectedPlace!.name,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              if (_selectedPlace!.phoneNumber1 != null && _selectedPlace!.phoneNumber1!.isNotEmpty)
+                _buildPhoneItem(_selectedPlace!.phoneNumber1!),
+              if (_selectedPlace!.phoneNumber2 != null && _selectedPlace!.phoneNumber2!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: _buildPhoneItem(_selectedPlace!.phoneNumber2!),
+                ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close', style: TextStyle(color: Colors.red, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneItem(String phone) {
+    return InkWell(
+      onTap: () => _makePhoneCall(phone),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.phone, color: Colors.green),
+          const SizedBox(width: 12),
+          Text(
+            phone,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -407,6 +513,56 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: (_selectedPlace?.phoneNumber1 != null && _selectedPlace!.phoneNumber1!.isNotEmpty)
+                            ? () => _showConnectionDialog(context)
+                            : null,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          side: BorderSide(color: Colors.grey.shade400),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.call, size: 20, color: const Color(0xFF2C557D)),
+                            const SizedBox(width: 8),
+                            Text("Connection", style: TextStyle(color: const Color(0xFF2C557D), fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                             if (_selectedPlace != null) {
+                                 _openMap(_selectedPlace!.latitude, _selectedPlace!.longitude);
+                             }
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                          side: BorderSide(color: Colors.grey.shade400),
+                        ),
+                        child: Row(
+                           mainAxisAlignment: MainAxisAlignment.center,
+                           children: [
+                             Icon(Icons.location_on, size: 20, color: const Color(0xFF2C557D)),
+                             const SizedBox(width: 8),
+                             Text("Location", style: TextStyle(color: const Color(0xFF2C557D), fontWeight: FontWeight.bold)),
+                           ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const Divider(indent: 20, endIndent: 20, height: 24),
             ],
           ),
@@ -514,7 +670,7 @@ class _MapScreenState extends State<MapScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.meeting_room, size: 24, color: Colors.black87),
+                                      const Icon(Icons.meeting_room, size: 24, color: Colors.blueAccent),
                                       const SizedBox(width: 8),
                                       Text(
                                         room.roomNumber ?? 'Room',
@@ -524,7 +680,7 @@ class _MapScreenState extends State<MapScreen> {
                                   ),
                                   Row(
                                     children: [
-                                      const Icon(Icons.people_outline, size: 24, color: Colors.black87),
+                                      const Icon(Icons.people_outline, size: 24, color: Colors.blueAccent),
                                       const SizedBox(width: 8),
                                       Text(
                                         '${room.capacity}',
@@ -539,7 +695,7 @@ class _MapScreenState extends State<MapScreen> {
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.info_outline, size: 17, color: Colors.black87),
+                                    const Icon(Icons.info_outline, size: 17, color: Colors.blueAccent),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(

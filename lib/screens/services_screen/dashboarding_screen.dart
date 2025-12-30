@@ -227,7 +227,7 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
     if (dateStr.isEmpty) return '';
     try {
       final DateTime parsed = DateTime.parse(dateStr).toLocal();
-      return DateFormat('yyyy.MM.dd HH:mm:ss').format(parsed);
+      return DateFormat('dd.MM.yyyy HH:mm:ss').format(parsed);
     } catch (e) {
       return dateStr;
     }
@@ -302,18 +302,14 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
               children: [
                 Text('Name: ${order.userFirstName ?? ''} ${order.userLastName ?? ''}'.trim()),
                 const SizedBox(height: 8),
-                if ((order.phone1 != null && order.phone1!.isNotEmpty) || (order.phone2 != null && order.phone2!.isNotEmpty))
-                  Row(
-                    children: [
-                      const Text('Phone: '),
-                      if (order.phone1 != null && order.phone1!.isNotEmpty)
-                        Text(order.phone1!),
-                      if (order.phone1 != null && order.phone1!.isNotEmpty && order.phone2 != null && order.phone2!.isNotEmpty)
-                        const SizedBox(width: 16),
-                      if (order.phone2 != null && order.phone2!.isNotEmpty)
-                         Text(order.phone2!),
-                    ],
-                  ),
+                if (order.phone1 != null && order.phone1!.isNotEmpty && order.phone2 != null && order.phone2!.isNotEmpty) ...[
+                  Text('Phone 1: ${order.phone1}'),
+                  const SizedBox(height: 8),
+                  Text('Phone 2: ${order.phone2}'),
+                ] else if (order.phone1 != null && order.phone1!.isNotEmpty)
+                  Text('Phone: ${order.phone1}')
+                else if (order.phone2 != null && order.phone2!.isNotEmpty)
+                  Text('Phone: ${order.phone2}'),
                 if (order.description != null && order.description!.isNotEmpty) ...[
                    const SizedBox(height: 8),
                    Text('Description: ${order.description}'),

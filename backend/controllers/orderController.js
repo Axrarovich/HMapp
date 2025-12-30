@@ -1,9 +1,42 @@
 const pool = require('../config/db');
 
+// Helper to validate and format phone number
+const validateAndFormatPhone = (phone) => {
+  // If phone is explicitly null or undefined, return null
+  if (!phone) return null;
+  
+  // Remove all non-digits
+  const digits = phone.toString().replace(/\D/g, '');
+
+  // Must have 12 digits and start with 998
+  if (digits.length !== 12 || !digits.startsWith('998')) {
+    throw new Error('Phone number must be +998 followed by exactly 9 digits.');
+  }
+
+  // Format: +998 XX XXX XX XX
+  return `+${digits.substring(0, 3)} ${digits.substring(3, 5)} ${digits.substring(5, 8)} ${digits.substring(8, 10)} ${digits.substring(10, 12)}`;
+};
+
 // Create a new order
 const createOrder = async (req, res) => {
-  const { master_id, room_id, description, booking_date, phone_1, phone_2 } = req.body;
+  let { master_id, room_id, description, booking_date, phone_1, phone_2 } = req.body;
   const user_id = req.user.id;
+
+  // Validate and format phone numbers
+  try {
+      if (!phone_1) {
+          return res.status(400).json({ message: 'Phone number 1 is required.' });
+      }
+      phone_1 = validateAndFormatPhone(phone_1);
+      
+      if (phone_2) {
+          phone_2 = validateAndFormatPhone(phone_2);
+      } else {
+          phone_2 = null;
+      }
+  } catch (e) {
+      return res.status(400).json({ message: e.message });
+  }
 
   // Check if the room is available
   const [rooms] = await pool.query('SELECT is_available FROM rooms WHERE id = ?', [room_id]);

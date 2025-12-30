@@ -251,7 +251,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (dateStr.isEmpty) return 'N/A';
     try {
       final dateTime = DateTime.parse(dateStr).toLocal();
-      return DateFormat('yyyy.MM.dd HH:mm:ss').format(dateTime);
+      return DateFormat('dd.MM.yyyy HH:mm:ss').format(dateTime);
     } catch (e) {
       return dateStr;
     }

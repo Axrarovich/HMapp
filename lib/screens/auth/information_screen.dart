@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:comply/services/auth_service.dart';
 import 'package:comply/services/location_picker_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services_screen/orders_screen.dart';
@@ -31,6 +32,13 @@ class _InformationScreenState extends State<InformationScreen> {
   final _authService = AuthService();
   File? _image;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneController.text = '+998 ';
+    _phone2Controller.text = '+998 ';
+  }
 
   @override
   void dispose() {
@@ -63,9 +71,10 @@ class _InformationScreenState extends State<InformationScreen> {
       });
 
       try {
+        final phone2 = _phone2Controller.text.trim();
         final masterData = <String, dynamic>{
           'phone_number_1': _phoneController.text.trim(),
-          'phone_number_2': _phone2Controller.text.trim(),
+          'phone_number_2': (phone2 == '+998' || phone2 == '+998 ') ? '' : phone2,
           'address': _addressController.text.trim(),
           'description': _descriptionController.text.trim(),
         };
@@ -143,8 +152,10 @@ class _InformationScreenState extends State<InformationScreen> {
                         const SizedBox(height: 20),
                         TextFormField(
                           controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [PhoneInputFormatter()],
                           decoration: InputDecoration(
-                            labelText: 'Phone number 1',
+                            labelText: 'Phone number 1 (Required)',
                             filled: true,
                             fillColor: Colors.grey[200],
                             border: OutlineInputBorder(
@@ -153,8 +164,11 @@ class _InformationScreenState extends State<InformationScreen> {
                             ),
                           ),
                           validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
+                            if (value == null || value.trim().isEmpty || value.trim() == '+998') {
                               return 'Please enter your phone number';
+                            }
+                            if (value.length != 17) {
+                              return 'Please enter a complete phone number';
                             }
                             return null;
                           },
@@ -162,8 +176,10 @@ class _InformationScreenState extends State<InformationScreen> {
                         const SizedBox(height: 20),
                         TextFormField(
                           controller: _phone2Controller,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [PhoneInputFormatter()],
                           decoration: InputDecoration(
-                            labelText: "Phone number 2",
+                            labelText: "Phone number 2 (Optional)",
                             filled: true,
                             fillColor: Colors.grey[200],
                             border: OutlineInputBorder(
@@ -171,6 +187,15 @@ class _InformationScreenState extends State<InformationScreen> {
                               borderSide: BorderSide.none,
                             ),
                           ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty || value.trim() == '+998') {
+                              return null;
+                            }
+                            if (value.length != 17) {
+                              return 'Please enter a complete phone number';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
@@ -278,6 +303,43 @@ class _InformationScreenState extends State<InformationScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class PhoneInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text;
+    String digits = text.replaceAll(RegExp(r'\D'), '');
+
+    if (digits.startsWith('998')) {
+      digits = digits.substring(3);
+    }
+    
+    if (digits.length > 9) {
+      digits = digits.substring(0, 9);
+    }
+
+    final buffer = StringBuffer();
+    buffer.write('+998');
+    
+    if (digits.isNotEmpty) {
+      buffer.write(' ');
+      
+      for (int i = 0; i < digits.length; i++) {
+        if (i == 2 || i == 5 || i == 7) {
+          buffer.write(' ');
+        }
+        buffer.write(digits[i]);
+      }
+    }
+
+    final String formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
