@@ -1,6 +1,8 @@
 import 'package:comply/services/order_service.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Model for the order data from the backend
 class Order {
@@ -15,6 +17,8 @@ class Order {
   // User details (optional, can be fetched separately or joined in backend)
   final String? userFirstName;
   final String? userLastName;
+  final String? phone1;
+  final String? phone2;
 
 
   Order({
@@ -27,6 +31,8 @@ class Order {
     required this.updatedAt,
     this.userFirstName,
     this.userLastName,
+    this.phone1,
+    this.phone2,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -41,6 +47,8 @@ class Order {
        // These might not be in the order object directly, handle nulls
       userFirstName: json['user_first_name'],
       userLastName: json['user_last_name'],
+      phone1: json['phone_1'],
+      phone2: json['phone_2'],
     );
   }
 }
@@ -215,6 +223,131 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
     await _saveHiddenOrders();
   }
 
+  String _formatDate(String dateStr) {
+    if (dateStr.isEmpty) return '';
+    try {
+      final DateTime parsed = DateTime.parse(dateStr).toLocal();
+      return DateFormat('yyyy.MM.dd HH:mm:ss').format(parsed);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (!await launchUrl(launchUri)) {
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Could not call $phoneNumber')),
+         );
+       }
+    }
+  }
+
+  void _showPhoneNumbersDialog(Order order) {
+    List<String> phones = [];
+    if (order.phone1 != null && order.phone1!.isNotEmpty) phones.add(order.phone1!);
+    if (order.phone2 != null && order.phone2!.isNotEmpty) phones.add(order.phone2!);
+
+    if (phones.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('To call'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: phones.map((phone) {
+                return ListTile(
+                  leading: const Icon(Icons.phone, color: Colors.green),
+                  title: Text(phone),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _makePhoneCall(phone);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showOrderDetails(Order order) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Order ID: ${order.id}'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Name: ${order.userFirstName ?? ''} ${order.userLastName ?? ''}'.trim()),
+                const SizedBox(height: 8),
+                if ((order.phone1 != null && order.phone1!.isNotEmpty) || (order.phone2 != null && order.phone2!.isNotEmpty))
+                  Row(
+                    children: [
+                      const Text('Phone: '),
+                      if (order.phone1 != null && order.phone1!.isNotEmpty)
+                        Text(order.phone1!),
+                      if (order.phone1 != null && order.phone1!.isNotEmpty && order.phone2 != null && order.phone2!.isNotEmpty)
+                        const SizedBox(width: 16),
+                      if (order.phone2 != null && order.phone2!.isNotEmpty)
+                         Text(order.phone2!),
+                    ],
+                  ),
+                if (order.description != null && order.description!.isNotEmpty) ...[
+                   const SizedBox(height: 8),
+                   Text('Description: ${order.description}'),
+                ],
+                const SizedBox(height: 8),
+                Text('Status: ${order.status}'),
+                const SizedBox(height: 8),
+                Text('Created: ${_formatDate(order.createdAt)}'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            if ((order.phone1 != null && order.phone1!.isNotEmpty) || (order.phone2 != null && order.phone2!.isNotEmpty))
+              TextButton(
+                child: const Text('Call'),
+                onPressed: () {
+                   _showPhoneNumbersDialog(order);
+                },
+              ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Close'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -305,7 +438,13 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
         final isSelected = _selectedOrderIds.contains(order.id);
 
         return GestureDetector(
-          onTap: _isSelectionMode ? () => _toggleSelection(order.id) : null,
+          onTap: () {
+            if (_isSelectionMode) {
+              _toggleSelection(order.id);
+            } else {
+              _showOrderDetails(order);
+            }
+          },
           child: Card(
             margin: const EdgeInsets.all(8.0),
             child: Stack(
@@ -315,16 +454,31 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Order: ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Order ID: ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                       const SizedBox(height: 8),
-                       // You might want to fetch user details to display name
-                      Text('User ID: ${order.userId}'),
+                      // Display Name
+                      Text('Name: ${order.userFirstName ?? ''}  ${order.userLastName ?? ''}'.trim()),
                       const SizedBox(height: 8),
-                      Text('Description: ${order.description ?? 'N/A'}'),
-                      const Divider(height: 32, thickness: 1),
-                      Text('Status: ${order.status}'),
-                       const SizedBox(height: 8),
-                      Text('Created at: ${order.createdAt}'),
+                      // Display Phone Numbers
+                      if ((order.phone1 != null && order.phone1!.isNotEmpty) || (order.phone2 != null && order.phone2!.isNotEmpty))
+                        Row(
+                          children: [
+                            const Text('Phone: '),
+                            if (order.phone1 != null && order.phone1!.isNotEmpty)
+                              Text(order.phone1!),
+                            if (order.phone1 != null && order.phone1!.isNotEmpty && order.phone2 != null && order.phone2!.isNotEmpty)
+                              const SizedBox(width: 16),
+                            if (order.phone2 != null && order.phone2!.isNotEmpty)
+                               Text(order.phone2!),
+                          ],
+                        ),
+                      const SizedBox(height: 8),
+                      Text('Created: ${_formatDate(order.createdAt)}'),
                       const SizedBox(height: 16),
                       if (!_isSelectionMode) _buildActionButtons(order),
                     ],

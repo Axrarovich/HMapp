@@ -210,19 +210,15 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             children: [
                if (phone1 != null && phone1.toString().isNotEmpty)
                  ListTile(
-                   title: Text(phone1.toString()),
-                   trailing: IconButton(
-                     icon: const Icon(Icons.call, color: Colors.green),
-                     onPressed: () => _makePhoneCall(phone1.toString()),
-                   ),
+                   leading: const Icon(Icons.call, color: Colors.green),
+                   title: Text(phone1.toString(), style: const TextStyle(fontSize: 18)),
+                   onTap: () => _makePhoneCall(phone1.toString()),
                  ),
                if (phone2 != null && phone2.toString().isNotEmpty)
                  ListTile(
-                   title: Text(phone2.toString()),
-                   trailing: IconButton(
-                     icon: const Icon(Icons.call, color: Colors.green),
-                     onPressed: () => _makePhoneCall(phone2.toString()),
-                   ),
+                   leading: const Icon(Icons.call, color: Colors.green),
+                   title: Text(phone2.toString(), style: const TextStyle(fontSize: 18)),
+                   onTap: () => _makePhoneCall(phone2.toString()),
                  ),
                if ((phone1 == null || phone1.toString().isEmpty) && (phone2 == null || phone2.toString().isEmpty))
                   const Padding(
@@ -234,6 +230,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
               child: const Text("Close"),
             ),
           ],

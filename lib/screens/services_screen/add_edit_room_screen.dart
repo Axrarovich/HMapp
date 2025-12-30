@@ -202,6 +202,25 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
+        leading: (widget.room != null && _isEditing)
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _isEditing = false;
+                    _roomNumberController.text = widget.room?.roomNumber ?? '';
+                    _capacityController.text = widget.room?.capacity.toString() ?? '';
+                    _priceController.text = widget.room != null
+                        ? NumberFormat("#,###", "en_US").format(widget.room!.price).replaceAll(",", " ")
+                        : '';
+                    _descriptionController.text = widget.room?.description ?? '';
+                    _image = null;
+                    _deleteImage = false;
+                    _validateForm();
+                  });
+                },
+              )
+            : null,
         title: Text(widget.room == null ? 'Add Room' : (_isEditing ? 'Edit Room' : 'Room'),
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),),
         actions: [

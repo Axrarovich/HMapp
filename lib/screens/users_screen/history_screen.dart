@@ -251,7 +251,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (dateStr.isEmpty) return 'N/A';
     try {
       final dateTime = DateTime.parse(dateStr).toLocal();
-      return DateFormat.yMMMd().add_jm().format(dateTime);
+      return DateFormat('yyyy.MM.dd HH:mm:ss').format(dateTime);
     } catch (e) {
       return dateStr;
     }
@@ -377,17 +377,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ),
                                   const Divider(height: 20),
                                   Text(
-                                    '${order.masterFirstName} ${order.masterLastName}',
-                                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                    'Pleace name: ${order.masterFirstName} ${order.masterLastName}',
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${order.userLastName} ${order.userFirstName}',
-                                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                                    'Name: ${order.userLastName} ${order.userFirstName}',
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
                                     children: [
+                                      const Text('Phone: '),
                                       if (order.phone1 != null && order.phone1!.isNotEmpty)
                                         Text(order.phone1!, style: const TextStyle(fontSize: 14)),
                                       if (order.phone1 != null && order.phone1!.isNotEmpty && order.phone2 != null && order.phone2!.isNotEmpty)
@@ -396,15 +395,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                         Text(order.phone2!, style: const TextStyle(fontSize: 14)),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    '${order.description ?? 'No description'}',
-                                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                    'Description: ${order.description ?? 'No description'}',
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 4),
                                   Text(
-                                     _formatDate(order.createdAt),
-                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    'Created: ${_formatDate(order.createdAt)}',
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
                                   if (order.status == 'completed' && !_isSelectionMode) ...[
                                      const SizedBox(height: 16),
