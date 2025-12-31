@@ -17,6 +17,7 @@ class UserOrder {
   final String? phone1;
   final String? phone2;
   final bool isReviewed;
+  final String? roomNumber;
 
   UserOrder({
     required this.id,
@@ -31,6 +32,7 @@ class UserOrder {
     this.phone1,
     this.phone2,
     this.isReviewed = false,
+    this.roomNumber,
   });
 
   factory UserOrder.fromJson(Map<String, dynamic> json) {
@@ -47,11 +49,13 @@ class UserOrder {
       phone1: json['phone_1'],
       phone2: json['phone_2'],
       isReviewed: json['is_reviewed'] == true || json['is_reviewed'] == 1,
+      roomNumber: json['room_number']?.toString(),
     );
   }
 
   UserOrder copyWith({
     bool? isReviewed,
+    String? roomNumber,
   }) {
     return UserOrder(
       id: id,
@@ -66,6 +70,7 @@ class UserOrder {
       phone1: phone1,
       phone2: phone2,
       isReviewed: isReviewed ?? this.isReviewed,
+      roomNumber: roomNumber ?? this.roomNumber,
     );
   }
 }
@@ -427,6 +432,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 4),
+                                  if (order.roomNumber != null && order.roomNumber!.isNotEmpty) ...[
+                                    Text(
+                                      'Room: ${order.roomNumber}',
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
                                   Text(
                                     'Description: ${order.description ?? 'No description'}',
                                   ),

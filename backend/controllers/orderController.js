@@ -85,7 +85,8 @@ const getOrders = async (req, res) => {
         SELECT o.*, 
                m_u.first_name as master_first_name, m_u.last_name as master_last_name, 
                u.first_name as user_first_name, u.last_name as user_last_name,
-               r.room_number
+               r.room_number,
+               (SELECT COUNT(*) FROM reviews WHERE reviews.order_id = o.id) > 0 as is_reviewed
         FROM orders o
         JOIN masters m ON o.master_id = m.id
         JOIN users m_u ON m.user_id = m_u.id

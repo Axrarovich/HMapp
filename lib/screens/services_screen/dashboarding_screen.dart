@@ -19,7 +19,7 @@ class Order {
   final String? userLastName;
   final String? phone1;
   final String? phone2;
-
+  final String? roomNumber;
 
   Order({
     required this.id,
@@ -33,6 +33,7 @@ class Order {
     this.userLastName,
     this.phone1,
     this.phone2,
+    this.roomNumber,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -49,6 +50,7 @@ class Order {
       userLastName: json['user_last_name'],
       phone1: json['phone_1'],
       phone2: json['phone_2'],
+      roomNumber: json['room_number'],
     );
   }
 }
@@ -310,6 +312,12 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
                   Text('Phone: ${order.phone1}')
                 else if (order.phone2 != null && order.phone2!.isNotEmpty)
                   Text('Phone: ${order.phone2}'),
+                
+                if (order.roomNumber != null && order.roomNumber!.isNotEmpty) ...[
+                   const SizedBox(height: 8),
+                   Text('Room: ${order.roomNumber}'),
+                ],
+
                 if (order.description != null && order.description!.isNotEmpty) ...[
                    const SizedBox(height: 8),
                    Text('Description: ${order.description}'),
@@ -473,6 +481,12 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
                                Text(order.phone2!),
                           ],
                         ),
+                      
+                      if (order.roomNumber != null && order.roomNumber!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text('Room: ${order.roomNumber}'),
+                      ],
+
                       const SizedBox(height: 8),
                       Text('Created: ${_formatDate(order.createdAt)}'),
                       const SizedBox(height: 16),
@@ -529,28 +543,39 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
           ],
         );
       case 'accepted':
-        return Row(
+      case 'in_progress':
+         return Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            ElevatedButton(
+             ElevatedButton(
               onPressed: () => _updateOrderStatus(order, 'completed'),
-              child: const Text('Finish'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Finish'), // or Complete
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            ),
+            const SizedBox(width: 8),
+             ElevatedButton(
+              onPressed: () => _updateOrderStatus(order, 'cancelled'),
+              child: const Text('Cancel'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             ),
           ],
         );
-      case 'in_progress':
-         return Row(
+       case 'completed':
+         return const Row(
            mainAxisAlignment: MainAxisAlignment.end,
            children: [
-            ElevatedButton(
-              onPressed: () => _updateOrderStatus(order, 'completed'),
-              child: const Text('Complete'),
-            ),
-           ]
-        );
+             Text('Completed', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+           ],
+         );
+       case 'cancelled':
+         return const Row(
+           mainAxisAlignment: MainAxisAlignment.end,
+           children: [
+             Text('Cancelled', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+           ],
+         );
       default:
-        return const SizedBox.shrink(); // No actions for 'completed' or 'cancelled'
+        return Container();
     }
   }
 }

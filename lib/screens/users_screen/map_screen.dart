@@ -38,6 +38,7 @@ class Place {
   final String? imageUrl;
   final String? phoneNumber1;
   final String? phoneNumber2;
+  final double rating;
 
   Place({
     required this.id,
@@ -47,6 +48,7 @@ class Place {
     this.imageUrl,
     this.phoneNumber1,
     this.phoneNumber2,
+    required this.rating,
   });
 
   factory Place.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class Place {
       imageUrl: _resolveImageUrl(json['image_url']),
       phoneNumber1: json['phone_number_1'],
       phoneNumber2: json['phone_number_2'],
+      rating: double.tryParse(json['rating'].toString()) ?? 0.0,
     );
   }
 }
@@ -486,7 +489,32 @@ class _MapScreenState extends State<MapScreen> {
                       child: Text(
                         _selectedPlace!.name,
                         style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Rating Widget
+                    Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                            children: [
+                                const Icon(Icons.star, size: 18, color: Colors.amber),
+                                const SizedBox(width: 4),
+                                Text(
+                                    _selectedPlace!.rating.toStringAsFixed(1),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: Colors.black87
+                                    ),
+                                ),
+                            ]
+                        )
                     ),
                     const SizedBox(width: 12),
                     if (_selectedPlace!.imageUrl != null && _selectedPlace!.imageUrl!.isNotEmpty)
