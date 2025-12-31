@@ -16,6 +16,7 @@ class UserOrder {
   final String userLastName;
   final String? phone1;
   final String? phone2;
+  final bool isReviewed;
 
   UserOrder({
     required this.id,
@@ -29,6 +30,7 @@ class UserOrder {
     required this.userLastName,
     this.phone1,
     this.phone2,
+    this.isReviewed = false,
   });
 
   factory UserOrder.fromJson(Map<String, dynamic> json) {
@@ -44,6 +46,26 @@ class UserOrder {
       userLastName: json['user_last_name'] ?? '',
       phone1: json['phone_1'],
       phone2: json['phone_2'],
+      isReviewed: json['is_reviewed'] == true || json['is_reviewed'] == 1,
+    );
+  }
+
+  UserOrder copyWith({
+    bool? isReviewed,
+  }) {
+    return UserOrder(
+      id: id,
+      status: status,
+      createdAt: createdAt,
+      description: description,
+      masterFirstName: masterFirstName,
+      masterLastName: masterLastName,
+      masterId: masterId,
+      userFirstName: userFirstName,
+      userLastName: userLastName,
+      phone1: phone1,
+      phone2: phone2,
+      isReviewed: isReviewed ?? this.isReviewed,
     );
   }
 }
@@ -232,6 +254,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  void _markAsReviewed(int orderId) {
+    setState(() {
+      final index = _orders.indexWhere((o) => o.id == orderId);
+      if (index != -1) {
+        _orders[index] = _orders[index].copyWith(isReviewed: true);
+      }
+    });
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'completed':
@@ -404,7 +435,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     'Created: ${_formatDate(order.createdAt)}',
                                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                                   ),
-                                  if (order.status == 'completed' && !_isSelectionMode) ...[
+                                  if (order.status == 'completed' && !_isSelectionMode && !order.isReviewed) ...[
                                      const SizedBox(height: 16),
                                      SizedBox(
                                       width: double.infinity,
@@ -421,6 +452,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                                ),
                                              ),
                                            );
+                                           
+                                           if (result == true) {
+                                             _markAsReviewed(order.id);
+                                           }
                                          },
                                          style: OutlinedButton.styleFrom(
                                           side: BorderSide(color: Theme.of(context).primaryColor),

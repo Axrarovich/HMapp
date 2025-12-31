@@ -1,5 +1,6 @@
 import 'package:comply/screens/services_screen/dashboarding_screen.dart';
 import 'package:comply/screens/services_screen/hotel_page.dart'; // This file now contains ManageRoomsScreen
+import 'package:comply/screens/services_screen/master_messages_screen.dart';
 import 'package:flutter/material.dart';
 import 'master_settings.dart';
 
@@ -15,7 +16,8 @@ class _OrdersPanelScreenState extends State<OrdersPanelScreen> {
 
   static const List<Widget> _widgetOptions = <Widget>[
     DashboardingScreen(),
-    ManageRoomsScreen(), // Changed from HotelPage to ManageRoomsScreen
+    MasterMessagesScreen(),
+    ManageRoomsScreen(),
     MasterSettingsScreen(),
   ];
 
@@ -36,10 +38,17 @@ class _OrdersPanelScreenState extends State<OrdersPanelScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
             label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.sms),
+            label: 'Reviews',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.hotel),

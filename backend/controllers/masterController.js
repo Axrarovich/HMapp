@@ -70,7 +70,8 @@ const updateMasterProfile = async (req, res) => {
       [phone_number_1, phone_number_2, place_name, description, is_available, image_url, masterId]
     );
 
-    await pool.query('UPDATE users SET login = ? WHERE id = ?', [login, req.user.id]);
+    // Update users table: login and first_name (which stores place_name for masters)
+    await pool.query('UPDATE users SET login = ?, first_name = ? WHERE id = ?', [login, place_name, req.user.id]);
 
     const [updatedMasters] = await pool.query(
       'SELECT u.login, u.first_name, m.image_url, m.* FROM masters m JOIN users u ON m.user_id = u.id WHERE m.id = ?',

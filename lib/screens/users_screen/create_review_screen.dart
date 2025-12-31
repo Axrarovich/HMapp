@@ -18,7 +18,7 @@ class CreateReviewScreen extends StatefulWidget {
 class _CreateReviewScreenState extends State<CreateReviewScreen> {
   final _reviewService = ReviewService();
   final _commentController = TextEditingController();
-  double _rating = 3.0; // Default rating
+  double _rating = 5.0; // Default rating
   bool _isLoading = false;
 
   @override
@@ -51,8 +51,8 @@ class _CreateReviewScreenState extends State<CreateReviewScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Review submitted successfully!')),
         );
-        // Pop back to the history screen
-        Navigator.of(context).pop();
+        // Pop back to the history screen with success result
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -93,8 +93,18 @@ class _CreateReviewScreenState extends State<CreateReviewScreen> {
                 children: List.generate(5, (index) {
                   return IconButton(
                     icon: Icon(
-                      index < _rating ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
+                      _rating >= 4
+                          ? Icons.sentiment_satisfied_rounded
+                          : _rating >= 2
+                              ? Icons.sentiment_neutral_rounded
+                              : Icons.sentiment_dissatisfied_rounded,
+                      color: index < _rating
+                          ? (_rating >= 4
+                              ? Colors.green
+                              : _rating >= 2
+                                  ? Colors.amber
+                                  : Colors.red)
+                          : Colors.black12,
                       size: 40,
                     ),
                     onPressed: () {
