@@ -64,6 +64,22 @@ class _MasterDetailsScreenState extends State<MasterDetailsScreen> {
           final reviews = snapshot.data!['reviews'] as List;
           final bool isAvailable = master['is_available'] == 1;
 
+          // Calculate average rating manually to ensure max 5.0 scale
+          double averageRating = 0.0;
+          if (reviews.isNotEmpty) {
+            double total = 0.0;
+            for (var review in reviews) {
+              total += double.tryParse(review['rating'].toString()) ?? 0.0;
+            }
+            averageRating = total / reviews.length;
+            // Cap at 5.0 just in case
+            if (averageRating > 5.0) averageRating = 5.0;
+          } else {
+             // Fallback to master['rating'] if no reviews but rating exists, ensuring it's <= 5.0
+             averageRating = double.tryParse(master['rating'].toString()) ?? 0.0;
+             if (averageRating > 5.0) averageRating = 5.0;
+          }
+
           return Column(
             children: [
               Expanded(
@@ -104,7 +120,7 @@ class _MasterDetailsScreenState extends State<MasterDetailsScreen> {
                                     const Icon(Icons.star, color: Colors.amber, size: 20),
                                     const SizedBox(width: 4),
                                     Text(
-                                      '${double.tryParse(master['rating'].toString())?.toStringAsFixed(1) ?? '0.0'} (${reviews.length} reviews)',
+                                      '${averageRating.toStringAsFixed(1)} (${reviews.length} reviews)',
                                        style: const TextStyle(fontSize: 16),
                                     ),
                                   ],
@@ -141,6 +157,9 @@ class _MasterDetailsScreenState extends State<MasterDetailsScreen> {
                               itemCount: reviews.length,
                               itemBuilder: (context, index) {
                                 final review = reviews[index];
+                                double reviewRating = double.tryParse(review['rating'].toString()) ?? 0.0;
+                                if (reviewRating > 5.0) reviewRating = 5.0;
+
                                 return Card(
                                   margin: const EdgeInsets.symmetric(vertical: 6),
                                   child: ListTile(
@@ -149,7 +168,7 @@ class _MasterDetailsScreenState extends State<MasterDetailsScreen> {
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(review['rating'].toString()),
+                                        Text(reviewRating.toString()),
                                         const Icon(Icons.star, color: Colors.amber, size: 16),
                                       ],
                                     ),

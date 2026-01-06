@@ -53,8 +53,8 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
   }
 
   Color _getRatingColor(num rating) {
-    if (rating <= 1) return Colors.red;
-    if (rating <= 3) return Colors.amber;
+    if (rating <= 2) return Colors.red;
+    if (rating <= 3.9) return Colors.amber;
     return Colors.green;
   }
 
@@ -91,13 +91,15 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
     int greenCount = 0;
 
     for (var review in _reviews) {
-      final rating = review['rating'] is num
-          ? review['rating']
-          : double.tryParse(review['rating'].toString()) ?? 0;
+      double rating = review['rating'] is num
+          ? (review['rating'] as num).toDouble()
+          : double.tryParse(review['rating'].toString()) ?? 0.0;
+      
+      if (rating > 5.0) rating = 5.0;
 
-      if (rating <= 1) {
+      if (rating <= 2.0) {
         redCount++;
-      } else if (rating <= 3) {
+      } else if (rating <= 3.9) {
         amberCount++;
       } else {
         greenCount++;
@@ -194,9 +196,12 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
                                 }
 
                                 final review = _reviews[index];
-                                final rating = review['rating'] is num
-                                    ? review['rating']
-                                    : double.tryParse(review['rating'].toString()) ?? 0;
+                                double rating = review['rating'] is num
+                                    ? (review['rating'] as num).toDouble()
+                                    : double.tryParse(review['rating'].toString()) ?? 0.0;
+                                
+                                if (rating > 5.0) rating = 5.0;
+                                
                                 final color = _getRatingColor(rating);
 
                                 return Card(
@@ -233,7 +238,7 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
                                               child: Row(
                                                 children: [
                                                   Text(
-                                                    review['rating'].toString(),
+                                                    rating.toString(), // Use capped rating
                                                     style: TextStyle(
                                                       fontWeight: FontWeight.bold,
                                                       color: color,

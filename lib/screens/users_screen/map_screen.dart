@@ -52,6 +52,9 @@ class Place {
   });
 
   factory Place.fromJson(Map<String, dynamic> json) {
+    double parsedRating = double.tryParse(json['rating'].toString()) ?? 0.0;
+    if (parsedRating > 5.0) parsedRating = 5.0; // Ensure rating doesn't exceed 5.0
+
     return Place(
       id: json['id'],
       name: json['place_name'] ?? 'Unknown Place',
@@ -60,7 +63,7 @@ class Place {
       imageUrl: _resolveImageUrl(json['image_url']),
       phoneNumber1: json['phone_number_1'],
       phoneNumber2: json['phone_number_2'],
-      rating: double.tryParse(json['rating'].toString()) ?? 0.0,
+      rating: parsedRating,
     );
   }
 }

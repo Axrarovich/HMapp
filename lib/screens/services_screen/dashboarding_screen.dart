@@ -158,6 +158,22 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
   }
 
   Future<void> _updateOrderStatus(Order order, String newStatus) async {
+    if (newStatus == 'accepted' && order.roomNumber != null && order.roomNumber!.isNotEmpty) {
+      bool isOccupied = _allOrders.any((o) =>
+          o.id != order.id &&
+          o.roomNumber == order.roomNumber &&
+          (o.status == 'accepted' || o.status == 'in_progress'));
+
+      if (isOccupied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('The room is occupied')),
+          );
+        }
+        return;
+      }
+    }
+
     try {
       await _orderService.updateOrderStatus(order.id, newStatus);
       _fetchOrders(); // Refresh the list after updating
@@ -554,9 +570,9 @@ class _DashboardingScreenState extends State<DashboardingScreen> with SingleTick
             ),
             const SizedBox(width: 8),
              ElevatedButton(
-              onPressed: () => _updateOrderStatus(order, 'cancelled'),
-              child: const Text('Cancel'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => _updateOrderStatus(order, 'pending'),
+              child: const Text('Back'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrangeAccent),
             ),
           ],
         );
