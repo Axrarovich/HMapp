@@ -2,6 +2,7 @@ import 'package:comply/screens/users_screen/create_order_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:comply/services/review_service.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MasterDetailsScreen extends StatefulWidget {
   final int masterId;
@@ -94,7 +95,7 @@ class _MasterDetailsScreenState extends State<MasterDetailsScreen> {
                           CircleAvatar(
                             radius: 40,
                             backgroundImage: master['image_url'] != null
-                                ? NetworkImage(master['image_url'])
+                                ? CachedNetworkImageProvider(master['image_url'])
                                 : null,
                             child: master['image_url'] == null
                                 ? const Icon(Icons.person, size: 40)

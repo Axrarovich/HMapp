@@ -6,6 +6,8 @@ import 'package:comply/services/room_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AddEditRoomScreen extends StatefulWidget {
   final Room? room;
@@ -26,12 +28,14 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
   bool _isFormValid = false;
   bool _isEditing = false;
   bool _hasChanges = false;
+  bool _isAvailable = true;
   final RoomService _roomService = RoomService();
 
   @override
   void initState() {
     super.initState();
     _isEditing = widget.room == null;
+    _isAvailable = widget.room?.isAvailable ?? true;
 
     _roomNumberController = TextEditingController(text: widget.room?.roomNumber);
     _capacityController = TextEditingController(text: widget.room?.capacity.toString());
@@ -88,7 +92,8 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
             _roomNumberController.text != (widget.room?.roomNumber ?? '') ||
             _capacityController.text != (widget.room?.capacity.toString() ?? '') ||
             priceChanged ||
-            _descriptionController.text != (widget.room?.description ?? '');
+            _descriptionController.text != (widget.room?.description ?? '') ||
+            _isAvailable != (widget.room?.isAvailable ?? true);
       }
 
       setState(() {
@@ -120,6 +125,38 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     });
   }
 
+  void _openFullScreenImage() {
+    ImageProvider? imageProvider;
+    
+    if (_image != null) {
+      imageProvider = FileImage(_image!);
+    } else if (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty && !_deleteImage) {
+      final url = Uri.parse(baseUrl.replaceAll('/api', '')).resolve(widget.room!.imageUrl!).toString();
+      imageProvider = CachedNetworkImageProvider(url);
+    }
+
+    if (imageProvider != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+            ),
+            body: PhotoView(
+              imageProvider: imageProvider!,
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 2,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _saveOrUpdateRoom() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -128,7 +165,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
       'capacity': _capacityController.text,
       'price': _priceController.text.replaceAll(' ', ''), // Clean the price
       'description': _descriptionController.text,
-      'is_available': '1', 
+      'is_available': _isAvailable ? '1' : '0', 
     };
 
     if (_deleteImage) {
@@ -216,6 +253,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
                     _descriptionController.text = widget.room?.description ?? '';
                     _image = null;
                     _deleteImage = false;
+                    _isAvailable = widget.room?.isAvailable ?? true;
                     _validateForm();
                   });
                 },
@@ -289,6 +327,8 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
                       icon: Icons.description_outlined,
                       maxLines: 4,
                     ),
+                    const SizedBox(height: 16),
+                    _buildAvailabilitySwitch(),
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -304,7 +344,7 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
     bool hasImage = _image != null || (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty && !_deleteImage);
 
     return GestureDetector(
-      onTap: _isEditing ? _pickImage : null,
+      onTap: _isEditing ? _pickImage : (hasImage ? _openFullScreenImage : null),
       child: Container(
         height: 240,
         width: double.infinity,
@@ -326,10 +366,11 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
             if (_image != null)
               Image.file(_image!, fit: BoxFit.cover)
             else if (widget.room?.imageUrl != null && widget.room!.imageUrl!.isNotEmpty && !_deleteImage)
-               Image.network(
-                  Uri.parse(baseUrl.replaceAll('/api', '')).resolve(widget.room!.imageUrl!).toString(),
+               CachedNetworkImage(
+                  imageUrl: Uri.parse(baseUrl.replaceAll('/api', '')).resolve(widget.room!.imageUrl!).toString(),
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image_outlined, size: 50, color: Colors.grey)),
+                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                  errorWidget: (context, url, error) => const Center(child: Icon(Icons.broken_image_outlined, size: 50, color: Colors.grey)),
                 )
             else
                Center(
@@ -421,6 +462,39 @@ class _AddEditRoomScreenState extends State<AddEditRoomScreen> {
           fillColor: Colors.white,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAvailabilitySwitch() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        value: _isAvailable,
+        onChanged: _isEditing ? (val) {
+          setState(() {
+            _isAvailable = val;
+            _validateForm();
+          });
+        } : null,
+        title: Text('Available', style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+        secondary: Icon(
+            _isAvailable ? Icons.check_circle_outline : Icons.cancel_outlined, 
+            color: _isAvailable ? Colors.green : Colors.grey
+        ),
+        activeColor: Colors.blueAccent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       ),
     );
   }

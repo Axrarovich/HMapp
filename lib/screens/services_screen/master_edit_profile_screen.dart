@@ -3,6 +3,7 @@ import 'package:comply/screens/auth/master_signin_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MasterEditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> initialProfileData;
@@ -282,12 +283,13 @@ class _MasterEditProfileScreenState extends State<MasterEditProfileScreen> {
               children: [
                 ClipOval(
                   child: (_imageUrl != null && _imageUrl!.isNotEmpty)
-                      ? Image.network(
-                          Uri.parse(baseUrl).resolve(_imageUrl!).toString(),
+                      ? CachedNetworkImage(
+                          imageUrl: Uri.parse(baseUrl).resolve(_imageUrl!).toString(),
                           width: 200,
                           height: 200,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => 
+                          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) => 
                               const Icon(Icons.person, size: 200),
                         )
                       : Image.asset(

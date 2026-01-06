@@ -127,24 +127,15 @@ const updateOrderStatus = async (req, res) => {
     await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, order_id]);
 
     // Logic for updating room availability based on order status
-
-    // If status is accepted, room becomes occupied
-    if (status === 'accepted' && order.room_id) {
-         await pool.query('UPDATE rooms SET is_available = false WHERE id = ?', [order.room_id]);
-    }
-
-    // If order is completed (Finished), room becomes available again
-    if (status === 'completed' && order.room_id) {
-        await pool.query('UPDATE rooms SET is_available = true WHERE id = ?', [order.room_id]);
-    }
-
-    // If order is cancelled
-    if (status === 'cancelled' && order.room_id) {
-        // Only make it available if it was previously accepted or in progress (meaning it was occupied)
-        // If it was 'pending', it was never occupied, so we don't need to do anything (it's already available)
-        if (order.status === 'accepted' || order.status === 'in_progress') {
-            await pool.query('UPDATE rooms SET is_available = true WHERE id = ?', [order.room_id]);
-        }
+    
+    // We update room availability regardless of the previous status to ensure consistency.
+    // If status is accepted or in_progress, room becomes occupied (0)
+    if (['accepted', 'in_progress'].includes(status) && order.room_id) {
+         await pool.query('UPDATE rooms SET is_available = 0 WHERE id = ?', [order.room_id]);
+    } 
+    // If order is completed, cancelled, rejected or reverted to pending, room becomes available (1)
+    else if (['completed', 'cancelled', 'pending', 'rejected'].includes(status) && order.room_id) {
+         await pool.query('UPDATE rooms SET is_available = 1 WHERE id = ?', [order.room_id]);
     }
 
     res.json({ ...order, status });

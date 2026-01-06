@@ -7,6 +7,7 @@ import 'edit_hotel.dart';
 import 'master_about_us_screen.dart';
 import 'master_edit_profile_screen.dart';
 import 'master_language_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MasterSettingsScreen extends StatefulWidget {
   const MasterSettingsScreen({Key? key}) : super(key: key);
@@ -116,7 +117,7 @@ class _MasterSettingsScreenState extends State<MasterSettingsScreen> {
             radius: 30,
             backgroundColor: Colors.grey[200],
             backgroundImage: (imageUrl != null && imageUrl.isNotEmpty)
-                ? NetworkImage(Uri.parse(baseUrl).resolve(imageUrl).toString())
+                ? CachedNetworkImageProvider(Uri.parse(baseUrl).resolve(imageUrl).toString())
                 : null,
             child: (imageUrl == null || imageUrl.isEmpty)
                 ? ClipOval(

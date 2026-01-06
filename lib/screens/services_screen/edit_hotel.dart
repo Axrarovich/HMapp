@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class EditHotelScreen extends StatefulWidget {
   final Map<String, dynamic> initialProfileData;
@@ -201,12 +202,13 @@ class _MasterEditProfileScreenState extends State<EditHotelScreen> {
                             fit: BoxFit.cover,
                           )
                         : (_imageUrl != null && _imageUrl!.isNotEmpty)
-                            ? Image.network(
-                                Uri.parse(baseUrl).resolve(_imageUrl!).toString(),
+                            ? CachedNetworkImage(
+                                imageUrl: Uri.parse(baseUrl).resolve(_imageUrl!).toString(),
                                 width: 200,
                                 height: 200,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => 
+                                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                errorWidget: (context, url, error) => 
                                     const Icon(Icons.business, size: 200),
                               )
                             : Image.asset(

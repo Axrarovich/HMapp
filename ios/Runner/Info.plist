@@ -53,5 +53,14 @@
 	<string>Ilovaga rasmga olish uchun kameradan foydalanishga ruxsat berish</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ilovaga video yozish uchun mikrofondan foydalanishga ruxsat berish</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>googlechromes</string>
+        <string>comgooglemaps</string>
+        <string>waze</string>
+        <string>yandexnavi</string>
+        <string>yandexmaps</string>
+        <string>yandex-taxi</string>
+    </array>
 </dict>
 </plist>

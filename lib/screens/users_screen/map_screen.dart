@@ -13,6 +13,8 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // Helper function to resolve full image URL
 String? _resolveImageUrl(String? url) {
@@ -296,29 +298,76 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openMap(double lat, double lng) async {
-    try {
-        final Uri googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
-        final Uri appleMapsUrl = Uri.parse("https://maps.apple.com/?daddr=$lat,$lng");
-        final Uri webUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+    _showMapSelectionDialog(lat, lng);
+  }
 
-        if (Platform.isAndroid) {
-            if (await canLaunchUrl(googleMapsUrl)) {
-                await launchUrl(googleMapsUrl);
-            } else {
-                await launchUrl(webUrl);
-            }
-        } else if (Platform.isIOS) {
-            if (await canLaunchUrl(appleMapsUrl)) {
-                 await launchUrl(appleMapsUrl);
-            } else {
-                 await launchUrl(webUrl);
-            }
-        } else {
-            await launchUrl(webUrl);
-        }
-    } catch (e) {
-        print('Could not launch map: $e');
-    }
+  void _showMapSelectionDialog(double lat, double lng) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.map, color: Colors.blue),
+                title: const Text('Google Maps'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
+                  final Uri webUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+                  if (await canLaunchUrl(googleMapsUrl)) {
+                    await launchUrl(googleMapsUrl);
+                  } else {
+                    await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+              if (Platform.isIOS)
+                ListTile(
+                  leading: const Icon(Icons.map_outlined, color: Colors.grey),
+                  title: const Text('Apple Maps'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final Uri appleMapsUrl = Uri.parse("https://maps.apple.com/?daddr=$lat,$lng");
+                    if (await canLaunchUrl(appleMapsUrl)) {
+                      await launchUrl(appleMapsUrl);
+                    }
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.local_taxi, color: Colors.amber),
+                title: const Text('Yandex Maps'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri yandexMapsUrl = Uri.parse("yandexmaps://maps.yandex.ru/?pt=$lng,$lat&z=12&l=map");
+                  final Uri yandexNaviUrl = Uri.parse("yandexnavi://build_route_on_map?lat_to=$lat&lon_to=$lng");
+                  
+                  if (await canLaunchUrl(yandexNaviUrl)) {
+                     await launchUrl(yandexNaviUrl);
+                  } else if (await canLaunchUrl(yandexMapsUrl)) {
+                     await launchUrl(yandexMapsUrl);
+                  } else {
+                     // Fallback to web or app store if needed, or show error
+                     // await launchUrl(Uri.parse("https://yandex.com/maps/?pt=$lng,$lat&z=12&l=map"));
+                  }
+                },
+              ),
+               ListTile(
+                leading: const Icon(Icons.directions_car, color: Colors.blue),
+                title: const Text('Waze'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri wazeUrl = Uri.parse("waze://?ll=$lat,$lng&navigate=yes");
+                   if (await canLaunchUrl(wazeUrl)) {
+                      await launchUrl(wazeUrl);
+                   }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showConnectionDialog(BuildContext context) {
@@ -377,6 +426,27 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
     );
+  }
+
+  void _openFullScreenImage(String imageUrl) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+            ),
+            body: PhotoView(
+              imageProvider: CachedNetworkImageProvider(imageUrl),
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 2,
+            ),
+          ),
+        ),
+      );
   }
 
   @override
@@ -522,12 +592,13 @@ class _MapScreenState extends State<MapScreen> {
                     const SizedBox(width: 12),
                     if (_selectedPlace!.imageUrl != null && _selectedPlace!.imageUrl!.isNotEmpty)
                        ClipOval(
-                         child: Image.network(
-                           _selectedPlace!.imageUrl!,
+                         child: CachedNetworkImage(
+                           imageUrl: _selectedPlace!.imageUrl!,
                            height: 40,
                            width: 40,
                            fit: BoxFit.cover,
-                           errorBuilder: (context, error, stackTrace) =>
+                           placeholder: (context, url) => Container(height: 40, width: 40, color: Colors.grey[200]),
+                           errorWidget: (context, url, error) =>
                                Container(height: 40, width: 40, color: Colors.grey[200], child: const Icon(Icons.image_not_supported, size: 20, color: Colors.grey)),
                          ),
                        )
@@ -651,16 +722,25 @@ class _MapScreenState extends State<MapScreen> {
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                         child: room.imageUrl != null && room.imageUrl!.isNotEmpty
-                            ? Image.network(
-                                room.imageUrl!, 
-                                height: 200, 
-                                width: double.infinity, 
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  height: 200,
-                                  width: double.infinity,
-                                  color: Colors.grey[100],
-                                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                            ? GestureDetector(
+                                onTap: () => _openFullScreenImage(room.imageUrl!),
+                                child: CachedNetworkImage(
+                                  imageUrl: room.imageUrl!, 
+                                  height: 200, 
+                                  width: double.infinity, 
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    height: 200,
+                                    width: double.infinity,
+                                    color: Colors.grey[100],
+                                    child: const Center(child: CircularProgressIndicator()),
+                                  ),
+                                  errorWidget: (context, url, error) => Container(
+                                    height: 200,
+                                    width: double.infinity,
+                                    color: Colors.grey[100],
+                                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                                  ),
                                 ),
                               )
                             : Container(

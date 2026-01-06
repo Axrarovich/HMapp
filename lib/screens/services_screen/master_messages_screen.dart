@@ -89,6 +89,7 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
     int redCount = 0;
     int amberCount = 0;
     int greenCount = 0;
+    double totalRating = 0.0;
 
     for (var review in _reviews) {
       double rating = review['rating'] is num
@@ -96,6 +97,8 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
           : double.tryParse(review['rating'].toString()) ?? 0.0;
       
       if (rating > 5.0) rating = 5.0;
+      
+      totalRating += rating;
 
       if (rating <= 2.0) {
         redCount++;
@@ -106,6 +109,8 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
       }
     }
 
+    double averageRating = _reviews.isNotEmpty ? totalRating / _reviews.length : 0.0;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -115,6 +120,34 @@ class _MasterMessagesScreenState extends State<MasterMessagesScreen> {
           'Reviews & Ratings',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 20),
+                  const SizedBox(width: 4),
+                  Text(
+                    averageRating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+
         automaticallyImplyLeading: false,
       ),
       body: Column(

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:comply/screens/users_screen/empty_screen.dart';
 import 'package:comply/services/master_service.dart';
 import 'package:comply/services/order_service.dart';
@@ -149,44 +150,133 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       return;
     }
 
+    double? lat;
+    double? lng;
+
+    try {
+      if (_masterData!['latitude'] != null) {
+         lat = double.tryParse(_masterData!['latitude'].toString());
+      }
+      if (_masterData!['longitude'] != null) {
+         lng = double.tryParse(_masterData!['longitude'].toString());
+      }
+    } catch(e) {
+      print('Error parsing lat/lng: $e');
+    }
+
+    if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+        _showMapSelectionDialog(lat, lng);
+        return;
+    }
+
+    // Fallback if only address is available
     var address = _masterData!['address'];
     
     if (address == null || address.toString().isEmpty) {
        address = _masterData!['location'];
     }
-    
-    // Check for latitude and longitude fields
-    if (address == null || address.toString().isEmpty) {
-      final lat = _masterData!['latitude'];
-      final lng = _masterData!['longitude'];
-      if (lat != null && lng != null) {
-        address = '$lat,$lng';
-      }
+
+    if (address != null && address.toString().isNotEmpty) {
+        final Uri url = Uri.https('www.google.com', '/maps/dir/', {
+          'api': '1',
+          'destination': address.toString(),
+        });
+
+        try {
+          if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+            throw Exception('Could not launch $url');
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not open maps: $e')),
+            );
+          }
+        }
+    } else {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location not available for this master')),
+          );
+        }
     }
+  }
 
-    if (address == null || address.toString().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location not available for this master')),
-      );
-      return;
-    }
-
-    final Uri url = Uri.https('www.google.com', '/maps/dir/', {
-      'api': '1',
-      'destination': address.toString(),
-    });
-
-    try {
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not launch $url');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open maps: $e')),
+  void _showMapSelectionDialog(double lat, double lng) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.map, color: Colors.blue),
+                title: const Text('Google Maps'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri googleMapsUrl = Uri.parse("google.navigation:q=$lat,$lng&mode=d");
+                  final Uri webUrl = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng");
+                  if (await canLaunchUrl(googleMapsUrl)) {
+                    await launchUrl(googleMapsUrl);
+                  } else {
+                    await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+              if (Platform.isIOS)
+                ListTile(
+                  leading: const Icon(Icons.map_outlined, color: Colors.grey),
+                  title: const Text('Apple Maps'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final Uri appleMapsUrl = Uri.parse("https://maps.apple.com/?daddr=$lat,$lng");
+                    if (await canLaunchUrl(appleMapsUrl)) {
+                      await launchUrl(appleMapsUrl);
+                    }
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.local_taxi, color: Colors.amber),
+                title: const Text('Yandex Maps'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri yandexMapsUrl = Uri.parse("yandexmaps://maps.yandex.ru/?pt=$lng,$lat&z=12&l=map");
+                  final Uri yandexNaviUrl = Uri.parse("yandexnavi://build_route_on_map?lat_to=$lat&lon_to=$lng");
+                  
+                  if (await canLaunchUrl(yandexNaviUrl)) {
+                     await launchUrl(yandexNaviUrl);
+                  } else if (await canLaunchUrl(yandexMapsUrl)) {
+                     await launchUrl(yandexMapsUrl);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.local_taxi_outlined, color: Colors.black),
+                title: const Text('Yandex Go'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri yandexGoUrl = Uri.parse("yandex-taxi://route?end-lat=$lat&end-lon=$lng");
+                  if (await canLaunchUrl(yandexGoUrl)) {
+                     await launchUrl(yandexGoUrl);
+                  }
+                },
+              ),
+               ListTile(
+                leading: const Icon(Icons.directions_car, color: Colors.blue),
+                title: const Text('Waze'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final Uri wazeUrl = Uri.parse("waze://?ll=$lat,$lng&navigate=yes");
+                   if (await canLaunchUrl(wazeUrl)) {
+                      await launchUrl(wazeUrl);
+                   }
+                },
+              ),
+            ],
+          ),
         );
-      }
-    }
+      },
+    );
   }
 
   void _showConnectionDialog() {
